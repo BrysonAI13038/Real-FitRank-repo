@@ -15,7 +15,8 @@ function load(name) {
   return context.exports;
 }
 const { scoreWorkout, rankProgress } = load('scoring');
-const { saveWorkout, loadData } = load('storage');
+const { saveWorkout, loadData, addGoal, deleteGoal } = load('storage');
+const { validateGoal, goalReward, currentBest, isGoalMet } = load('goals');
 const { processWorkout, processSession } = load('model');
 const { exercises, searchExercises, MUSCLE_GROUPS } = load('exercises');
 const { loadDraft, saveDraft, clearDraft } = load('draft');
@@ -69,7 +70,7 @@ test('failed writes award nothing; corrupted data is not overwritten', () => {
   assert.throws(() => saveWorkout([exercise()],'one',{getItem:()=>'{broken',setItem:()=>{wrote=true;}}));
   assert.equal(wrote,false);
 });
-const V1 = 'fitrank.workouts.v1', V2 = 'fitrank.data.v2';
+const V1 = 'fitrank.workouts.v1', V2 = 'fitrank.data.v2', V3 = 'fitrank.data.v3';
 const saved = (id, ex = exercise(), earned = 12) => ({ id, completedAt: '2026-01-01T00:00:00.000Z', exercises: [ex], earned });
 const same = (a, b) => assert.equal(JSON.stringify(a), JSON.stringify(b));
 const v1Store = workouts => { const s = store(); s.setItem(V1, JSON.stringify({ version: 1, workouts, elo: workouts.reduce((n, w) => n + w.earned, 0) })); return s; };
@@ -77,14 +78,14 @@ test('v1 data loads unchanged and migrates on first save; v1 key is never modifi
   const storage = v1Store([saved('a'), saved('b', exercise(105), 24)]);
   const original = storage.getItem(V1);
   const loaded = loadData(storage);
-  assert.equal(loaded.version, 2); assert.equal(loaded.elo, 36); assert.equal(loaded.workouts.length, 2);
+  assert.equal(loaded.version, 3); same(loaded.goals, []); assert.equal(loaded.elo, 36); assert.equal(loaded.workouts.length, 2);
   same(loaded.workouts[1], saved('b', exercise(105), 24));
-  assert.equal(storage.getItem(V2), null);
+  assert.equal(storage.getItem(V3), null);
   const reward = saveWorkout([exercise(110)], 'c', storage);
   assert.equal(reward.before, 36); assert.equal(reward.after, 60);
   assert.equal(storage.getItem(V1), original);
-  const v2 = JSON.parse(storage.getItem(V2));
-  assert.equal(v2.version, 2); assert.equal(v2.workouts.length, 3); assert.equal(v2.elo, 60);
+  const v3 = JSON.parse(storage.getItem(V3));
+  assert.equal(v3.version, 3); assert.equal(v3.workouts.length, 3); assert.equal(v3.elo, 60);
   same(loadData(storage), loadData(storage));
   assert.equal(saveWorkout([exercise(120)], 'd', storage).after, 84);
   assert.equal(storage.getItem(V1), original);
@@ -97,13 +98,13 @@ test('bad entries are quarantined, not fatal; elo is derived from valid workouts
   assert.equal(loaded.elo, 212);
   same(loaded.quarantine, [bad, saved('a')]);
   saveWorkout([exercise()], 'c', storage);
-  same(JSON.parse(storage.getItem(V2)).quarantine, [bad, saved('a')]);
+  same(JSON.parse(storage.getItem(V3)).quarantine, [bad, saved('a')]);
   const mismatched = store();
   mismatched.setItem(V1, JSON.stringify({ version: 1, workouts: [saved('a')], elo: 999 }));
   assert.equal(loadData(mismatched).elo, 12);
 });
 test('unreadable or unknown-version data throws and is never overwritten', () => {
-  for (const [key, raw] of [[V2, '{broken'], [V2, '{"version":3,"workouts":[]}'], [V1, '{broken'], [V1, '{"version":1}'], [V2, 'null']]) {
+  for (const [key, raw] of [[V2, '{broken'], [V2, '{"version":3,"workouts":[]}'], [V3, '{broken'], [V3, '{"version":4,"workouts":[]}'], [V3, '{"version":2,"workouts":[]}'], [V1, '{broken'], [V1, '{"version":1}'], [V2, 'null'], [V3, 'null']]) {
     const storage = store(); storage.setItem(key, raw);
     let wrote = false;
     assert.throws(() => loadData(storage), /Nothing was overwritten/);
@@ -190,4 +191,119 @@ test('draft: round-trip, tolerant load, blocked storage, separate from saved dat
   assert.deepEqual(plain(loadDraft(blocked)), []);
   assert.equal(saveDraft(entries, blocked), false);
   assert.equal(clearDraft(blocked), false);
+});
+
+const goalInput = (overrides = {}) => ({ exerciseId: 'bench-press', kind: 'weight', target: 110, ...overrides });
+const logged = (...items) => items.map(ex => ({ exercises: [ex] }));
+test('v2 data loads as v3 with no goals; v2 key is never modified', () => {
+  const storage = store();
+  const v2 = JSON.stringify({ version: 2, workouts: [saved('a'), saved('b', exercise(105), 24)], elo: 36, quarantine: ['old'] });
+  storage.setItem(V2, v2);
+  const loaded = loadData(storage);
+  assert.equal(loaded.version, 3); assert.equal(loaded.elo, 36); same(loaded.goals, []); same(loaded.quarantine, ['old']);
+  assert.equal(storage.getItem(V3), null);
+  const reward = saveWorkout([exercise(110)], 'c', storage);
+  assert.equal(reward.before, 36);
+  assert.equal(storage.getItem(V2), v2);
+  const v3 = JSON.parse(storage.getItem(V3));
+  assert.equal(v3.version, 3); assert.equal(v3.workouts.length, 3); same(v3.quarantine, ['old']); same(v3.goals, []);
+  // v3 wins once it exists, even though v2 is still on disk.
+  assert.equal(loadData(storage).workouts.length, 3);
+});
+test('goals persist across saves; bad goals are quarantined; bad breakdowns are dropped', () => {
+  const storage = store();
+  saveWorkout([exercise(100)], 'one', storage);
+  const goal = addGoal(goalInput(), 'g1', storage, new Date('2026-03-01T12:00:00Z'));
+  assert.equal(goal.baseline, 100); assert.equal(goal.createdAt, '2026-03-01T12:00:00.000Z');
+  same(addGoal(goalInput({ target: 200 }), 'g1', storage), goal);
+  assert.equal(loadData(storage).goals.length, 1);
+  saveWorkout([exercise(101)], 'two', storage);
+  same(loadData(storage).goals, [goal]);
+  const v3 = JSON.parse(storage.getItem(V3));
+  const badGoal = { id: 'bad', exerciseId: 'squat', kind: 'sideways', target: 5, baseline: 0, reward: 50, createdAt: '2026-01-01T00:00:00Z' };
+  const withBreakdowns = { ...saved('x', exercise(), 12), breakdown: [{ label: 'Session', amount: 10 }] };
+  const brokenBreakdown = { ...saved('y', exercise(), 12), breakdown: 'oops' };
+  storage.setItem(V3, JSON.stringify({ ...v3, goals: [goal, goal, badGoal], workouts: [...v3.workouts, withBreakdowns, brokenBreakdown] }));
+  const loaded = loadData(storage);
+  same(loaded.goals, [goal]); same(loaded.quarantine, [goal, badGoal]);
+  same(loaded.workouts.find(w => w.id === 'x').breakdown, [{ label: 'Session', amount: 10 }]);
+  assert.equal('breakdown' in loaded.workouts.find(w => w.id === 'y'), false);
+  assert.equal(loaded.workouts.length, 4);
+});
+test('deleteGoal removes active goals only; goal writes respect failed storage', () => {
+  const storage = store();
+  saveWorkout([exercise(100)], 'one', storage);
+  addGoal(goalInput(), 'g1', storage);
+  deleteGoal('missing', storage);
+  assert.equal(loadData(storage).goals.length, 1);
+  deleteGoal('g1', storage);
+  assert.equal(loadData(storage).goals.length, 0);
+  addGoal(goalInput(), 'g2', storage);
+  const v3 = JSON.parse(storage.getItem(V3));
+  v3.goals[0].achievedAt = '2026-03-02T00:00:00Z';
+  storage.setItem(V3, JSON.stringify(v3));
+  deleteGoal('g2', storage);
+  assert.equal(loadData(storage).goals.length, 1);
+  assert.throws(() => addGoal(goalInput({ exerciseId: 'row', target: 60 }), 'g3', { getItem: storage.getItem, setItem: () => { throw new Error('Quota'); } }), /Log this exercise/);
+  assert.throws(() => addGoal(goalInput({ target: 120 }), 'g4', { getItem: storage.getItem, setItem: () => { throw new Error('Quota'); } }), /Quota/);
+  assert.equal(loadData(storage).goals.length, 1);
+});
+test('goalReward scales with stretch, rounds to 5, and is capped', () => {
+  assert.equal(goalReward(100, 105), 50);
+  assert.equal(goalReward(100, 115), 100);
+  assert.equal(goalReward(100, 125), 150);
+  assert.equal(goalReward(100, 400), 150);
+  assert.equal(goalReward(100, 111), 80);
+  assert.equal(goalReward(0, 10), 150);
+});
+test('validateGoal: weight goals need a real stretch over a logged best', () => {
+  const history = logged(exercise(100), exercise(90));
+  assert.equal(currentBest(history, 'bench-press', 'weight'), 100);
+  assert.equal(validateGoal(goalInput({ target: 105 }), history, []).ok, true);
+  assert.equal(validateGoal(goalInput({ target: 105 }), history, []).reward, 50);
+  assert.match(validateGoal(goalInput({ target: 104.9 }), history, []).error, /at least 105 lbs/);
+  assert.match(validateGoal(goalInput({ target: 100 }), history, []).error, /at least 105/);
+  assert.match(validateGoal(goalInput({ target: 501 }), history, []).error, /up to 500/);
+  assert.ok(!validateGoal(goalInput({ target: NaN }), history, []).ok);
+  assert.ok(!validateGoal(goalInput({ target: 0 }), history, []).ok);
+  assert.ok(!validateGoal(goalInput({ exerciseId: 'ghost' }), history, []).ok);
+  assert.match(validateGoal(goalInput({ exerciseId: 'squat', target: 300 }), history, []).error, /Log this exercise/);
+  assert.match(validateGoal(goalInput({ exerciseId: 'push-up', target: 20 }), logged(exercise(0, 10, 'push-up')), []).error, /reps goal instead/);
+});
+test('validateGoal: reps goals use a lifted weight and at least +1 rep / +5%', () => {
+  const history = logged(exercise(100, 8), exercise(0, 20, 'push-up'));
+  const reps = (overrides = {}) => ({ exerciseId: 'bench-press', kind: 'reps', target: 10, atWeightLbs: 100, ...overrides });
+  assert.equal(currentBest(history, 'bench-press', 'reps', 100), 8);
+  assert.equal(currentBest(history, 'bench-press', 'reps', 101), 0);
+  assert.equal(validateGoal(reps({ target: 9 }), history, []).ok, true);
+  assert.match(validateGoal(reps({ target: 8 }), history, []).error, /at least 9 reps/);
+  assert.match(validateGoal(reps({ atWeightLbs: 150 }), history, []).error, /already lifted/);
+  assert.ok(!validateGoal(reps({ atWeightLbs: undefined }), history, []).ok);
+  assert.ok(!validateGoal(reps({ target: 9.5 }), history, []).ok);
+  assert.ok(!validateGoal(reps({ target: 101 }), history, []).ok);
+  assert.equal(validateGoal(reps({ exerciseId: 'push-up', atWeightLbs: 0, target: 20 }), history, []).ok, false);
+  assert.equal(validateGoal(reps({ exerciseId: 'push-up', atWeightLbs: 0, target: 21 }), history, []).ok, true);
+  // lower weight than the best: only sets at or above it count, so baseline can differ.
+  assert.equal(validateGoal(reps({ atWeightLbs: 50, target: 9 }), history, []).baseline, 8);
+});
+test('validateGoal: max 3 active goals and one active goal per exercise and kind', () => {
+  const history = logged(exercise(100), exercise(100, 5, 'squat'), exercise(50, 5, 'row'), exercise(40, 5, 'lat-pulldown'));
+  const goal = (id, exerciseId, kind = 'weight', achievedAt) => ({ id, exerciseId, kind, target: 500, ...(kind === 'reps' ? { atWeightLbs: 0 } : {}), baseline: 100, reward: 50, createdAt: '2026-01-01T00:00:00Z', ...(achievedAt ? { achievedAt } : {}) });
+  assert.match(validateGoal(goalInput({ target: 120 }), history, [goal('a', 'bench-press')]).error, /already have an active goal/);
+  assert.equal(validateGoal(goalInput({ kind: 'reps', target: 10, atWeightLbs: 100 }), history, [goal('a', 'bench-press')]).ok, true);
+  const three = [goal('a', 'squat'), goal('b', 'row'), goal('c', 'lat-pulldown')];
+  assert.match(validateGoal(goalInput({ target: 120 }), history, three).error, /at most 3/);
+  assert.equal(validateGoal(goalInput({ target: 120 }), history, [...three.slice(0, 2), goal('c', 'lat-pulldown', 'weight', '2026-02-01T00:00:00Z')]).ok, true);
+});
+test('isGoalMet: weight and reps goals', () => {
+  const base = { id: 'g', exerciseId: 'bench-press', baseline: 100, reward: 50, createdAt: '2026-01-01T00:00:00Z' };
+  const weight = { ...base, kind: 'weight', target: 110 };
+  const reps = { ...base, kind: 'reps', target: 10, atWeightLbs: 100 };
+  assert.equal(isGoalMet(weight, [exercise(110, 1)]), true);
+  assert.equal(isGoalMet(weight, [exercise(109.5, 20)]), false);
+  assert.equal(isGoalMet(weight, [exercise(200, 5, 'squat')]), false);
+  assert.equal(isGoalMet(reps, [exercise(100, 10)]), true);
+  assert.equal(isGoalMet(reps, [exercise(95, 12)]), false);
+  assert.equal(isGoalMet(reps, [{ exerciseId: 'bench-press', sets: [{ weightLbs: 100, reps: 8 }, { weightLbs: 120, reps: 10 }] }]), true);
+  assert.equal(isGoalMet(reps, [{ exerciseId: 'bench-press', sets: [{ weightLbs: 100, reps: 9 }, { weightLbs: 120, reps: 5 }] }]), false);
 });
