@@ -12,6 +12,7 @@
 .app-nav a { padding:8px 16px; color:#b7b7c0; border-bottom:2px solid transparent; text-decoration:none; transition:color 160ms,background-color 160ms; }
 .app-nav a:hover { color:#f4f4f5; background:#161618; }
 .app-nav a[aria-current] { color:#f59e0b; border-color:#f59e0b; }
+.app-nav-soon { font-size:9px; text-transform:uppercase; letter-spacing:.08em; color:#8a8a94; }
 .app-main { max-width:1120px; margin:auto; padding:32px 32px 64px; outline:none; }
 .app-page-heading { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:32px; }
 .app-page-heading p { margin-top:8px; }

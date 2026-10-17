@@ -15,7 +15,7 @@ export function Home({ data }: { data: SavedData }) {
     <div className="app-dashboard"><RankCard elo={data.elo} /><div className="app-stack">
       <div className="app-stats app-card">{[[stats.workouts,"Workouts"],[stats.thisWeek,"Workouts this week"],[stats.sets,"Sets completed"]].map(([value,label]) => <div key={label}><strong>{value}</strong><span>{label}</span></div>)}</div>
       <section className="app-card"><p className="app-label">This week</p><p><strong>{Math.min(week.days, week.target)} of {week.target}</strong> training days{week.days >= week.target ? " · weekly target reached" : ""}{week.streak > 0 ? ` · ${week.streak}-week streak` : ""}</p></section>
-      <section className="app-card"><p className="app-label">Keep building</p><blockquote>“Consistency builds strength.”</blockquote><div className="app-actions">{logAction}<a href="#/food" className="app-button app-secondary">+ Log Food</a></div></section>
+      <section className="app-card"><p className="app-label">Keep building</p><blockquote>“Consistency builds strength.”</blockquote><div className="app-actions">{logAction}<button type="button" className="app-button app-secondary" disabled>Log Food · Coming soon</button></div></section>
       <section><div className="app-section-heading"><h2>Recent workouts</h2><a href="#/workouts">View all →</a></div><WorkoutList workouts={data.workouts.slice(-3)} /></section>
     </div></div>
   </>;
@@ -38,7 +38,7 @@ export function Progress({ data, onChange }: { data: SavedData; onChange?: () =>
   </div></div></>;
 }
 export function Food() {
-  return <><PageHeading title="Food" subtitle="Fuel for the work you do." /><section className="app-card app-empty"><p className="app-label">Food tracking</p><h2>A place for your meals.</h2><p>Food logging isn’t available yet. This space will let you record meals alongside your training.</p><p>No food scores. No judgment.</p><a href="#/home" className="app-button app-secondary">Back to Home</a></section></>;
+  return <><PageHeading title="Food" subtitle="Fuel for the work you do." /><section className="app-card app-empty"><p className="app-label">Coming soon</p><h2>A place for your meals.</h2><p>Food logging isn’t available yet. This space will let you record meals alongside your training.</p><p>No food scores. No judgment.</p><a href="#/home" className="app-button app-secondary">Back to Home</a></section></>;
 }
 export function Settings({ data }: { data: SavedData | null }) {
   const [message, setMessage] = useState("");

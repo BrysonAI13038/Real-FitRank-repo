@@ -32,7 +32,7 @@ export default function App() {
     <header className="app-header"><a className="app-wordmark" href="#/home">FITRANK</a><span>Your work. Your progress.</span></header>
     {!showIntroduction && <nav className="app-nav" aria-label="Main navigation">{navigation.map(label => {
       const target = label.toLowerCase(); const active = page === target || (target === "workouts" && page === "log-workout");
-      return <a key={label} href={`#/${target}`} aria-current={active ? "page" : undefined}>{label}</a>;
+      return <a key={label} href={`#/${target}`} aria-current={active ? "page" : undefined}>{label}{target === "food" && <small className="app-nav-soon"> Soon</small>}</a>;
     })}</nav>}
     <main id="main-content" ref={main} tabIndex={-1} className="app-main">
       {showIntroduction ? <Introduction onComplete={() => {

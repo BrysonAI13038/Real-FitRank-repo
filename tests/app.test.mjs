@@ -44,6 +44,9 @@ test('saved history supplies totals, session sets and comparisons',()=>{
 test('food does not pretend to save; settings has no fake account controls',()=>{
   assert.match(render(Food,{}),/isn’t available yet/);
   assert.doesNotMatch(render(Food,{}),/Save food|Calories/);
+  assert.match(render(Food,{}),/Coming soon/);
+  assert.match(render(Home,{data}),/Log Food · Coming soon/);
+  assert.doesNotMatch(render(Home,{data}),/href="#\/food"/);
   assert.match(render(Settings,{data}),/Export workout data/);
   assert.doesNotMatch(render(Settings,{data}),/Sign in|Password/);
 });
