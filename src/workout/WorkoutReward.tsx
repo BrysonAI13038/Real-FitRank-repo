@@ -45,6 +45,9 @@ export default function WorkoutReward({ reward, onBack }: { reward: Reward; onBa
       <div className="mt-3 flex justify-between gap-2 text-[11px] leading-relaxed text-[#b7b7c0]"><span>{reward.after.toLocaleString()} ELO</span><span>{final.next ? `${final.remaining.toLocaleString()} to ${final.next}` : "Elite achieved"}</span></div>
       <p role="status" className="sr-only">Workout saved. Earned {reward.earned} ELO. Current rank: {final.rank}.</p>
     </div>
+    {reward.workout.breakdown?.length
+      ? <ul aria-label="How this session earned ELO" className="mb-6 space-y-2 text-xs text-[#b7b7c0]">{reward.workout.breakdown.map(line => <li key={line.label} className="flex justify-between gap-3"><span>{line.label}</span><span className="font-semibold text-[#f59e0b]">+{line.amount}</span></li>)}</ul>
+      : reward.earned === 0 && <p className="mb-6 text-xs leading-relaxed text-[#b7b7c0]">No ELO this time. You already earned today's session ELO. Your workout is saved, and nothing is lost.</p>}
     <p className="mb-6 text-xs text-[#a1a1aa]">{reward.workout.exercises.length} {reward.workout.exercises.length === 1 ? "exercise" : "exercises"} · {sets} {sets === 1 ? "set" : "sets"} completed</p>
     <button type="button" onClick={onBack} className="w-full cursor-pointer rounded-[1px] bg-[#f59e0b] px-3 py-3 text-[13px] font-semibold text-black hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f59e0b]">← Back to home</button>
   </div>;

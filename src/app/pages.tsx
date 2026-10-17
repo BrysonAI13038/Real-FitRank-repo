@@ -2,15 +2,18 @@ import { useEffect, useRef, useState } from "react";
 import Introduction from "./Introduction";
 import type { SavedData } from "../workout/storage";
 import { latestComparisons, summarize } from "./data";
+import { weekStatus } from "../workout/scoring";
 import { exerciseName, PageHeading, RankCard, WorkoutList } from "./components";
 
 const logAction = <a href="#/log-workout" className="app-button">+ Log Workout</a>;
 export function Home({ data }: { data: SavedData }) {
   const stats = summarize(data.workouts);
+  const week = weekStatus(data.workouts);
   return <>
     <PageHeading title="Your progress" subtitle="Log a workout, earn ELO, and watch your progress grow." action={logAction} />
     <div className="app-dashboard"><RankCard elo={data.elo} /><div className="app-stack">
       <div className="app-stats app-card">{[[stats.workouts,"Workouts"],[stats.thisWeek,"Workouts this week"],[stats.sets,"Sets completed"]].map(([value,label]) => <div key={label}><strong>{value}</strong><span>{label}</span></div>)}</div>
+      <section className="app-card"><p className="app-label">This week</p><p><strong>{Math.min(week.days, week.target)} of {week.target}</strong> training days{week.days >= week.target ? " · weekly target reached" : ""}{week.streak > 0 ? ` · ${week.streak}-week streak` : ""}</p></section>
       <section className="app-card"><p className="app-label">Keep building</p><blockquote>“Consistency builds strength.”</blockquote><div className="app-actions">{logAction}<a href="#/food" className="app-button app-secondary">+ Log Food</a></div></section>
       <section><div className="app-section-heading"><h2>Recent workouts</h2><a href="#/workouts">View all →</a></div><WorkoutList workouts={data.workouts.slice(-3)} /></section>
     </div></div>

@@ -10,7 +10,7 @@ export function PageHeading({ title, subtitle, action }: { title: string; subtit
 export function EloExplanation() {
   return <details className="app-elo-help">
     <summary>What is ELO?</summary>
-    <p>ELO is FitRank's progress score. You earn it by completing workouts and improving your performance. More ELO moves you through FitRank's ranks. Your ELO never decreases.</p>
+    <p>ELO is FitRank's progress score. You earn it by training consistently, reaching new weight milestones and hitting your goals. Higher ranks earn ELO more slowly. Your ELO never decreases.</p>
   </details>;
 }
 export function RankCard({ elo }: { elo: number }) {

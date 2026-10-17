@@ -14,7 +14,7 @@ function load(name) {
   modules.set(name, context.exports);
   return context.exports;
 }
-const { scoreWorkout, rankProgress } = load('scoring');
+const { scoreWorkout, rankProgress, rankMultiplier, weekStatus, RANKS } = load('scoring');
 const { saveWorkout, loadData, addGoal, deleteGoal } = load('storage');
 const { validateGoal, goalReward, currentBest, isGoalMet } = load('goals');
 const { processWorkout, processSession } = load('model');
@@ -27,45 +27,107 @@ function store() {
 }
 // Objects from the vm context have a different prototype, so compare plain copies.
 const plain = value => JSON.parse(JSON.stringify(value));
-const past = (...items) => items.map(ex => ({ exercises: [ex], earned: 12 }));
 
-test('completion, distinct exercises, improvement, PB, flat and down sessions', () => {
-  assert.equal(scoreWorkout([exercise()], []), 12);
-  assert.equal(scoreWorkout([exercise(), exercise(50,8,'row')], []), 14);
-  assert.equal(scoreWorkout([exercise(105)], past(exercise())), 24);
-  assert.equal(scoreWorkout([exercise(100,9)], past(exercise())), 24);
-  assert.equal(scoreWorkout([exercise()], past(exercise())), 12);
-  assert.equal(scoreWorkout([exercise(90)], past(exercise())), 12);
-  assert.equal(scoreWorkout([exercise(95)], past(exercise(100), exercise(90))), 14);
-  assert.equal(scoreWorkout([exercise(0,9)], past(exercise(0,8))), 24);
-  assert.equal(scoreWorkout([exercise(100)], past(exercise(0,8))), 12);
-  assert.equal(scoreWorkout([{...exercise(),sets:[...exercise().sets,...exercise().sets]}],past(exercise())),12);
+// Local-time dates (no Z) keep the Mon-Sun week logic independent of the machine's timezone.
+// 2026-02-02 is a Monday.
+const at = (day, hour = 12) => new Date(2026, 1, day, hour);
+const hist = (...items) => items.map(([ex, date]) => ({ exercises: [ex], completedAt: date.toISOString() }));
+const lines = result => plain(result.breakdown);
+const score = (current, history = [], elo = 0, now = at(2)) => scoreWorkout(current, history, elo, now);
+
+test('session ELO: first session of a day only; flat, down and extra-set sessions lose nothing', () => {
+  assert.equal(score([exercise()]).earned, 10);
+  assert.deepEqual(lines(score([exercise()])), [{ label: 'Session', amount: 10 }]);
+  assert.equal(score([exercise(), exercise(50, 8, 'row')]).earned, 10);
+  assert.equal(score([exercise(90)], hist([exercise(100), at(1)])).earned, 10);
+  assert.equal(score([{ ...exercise(), sets: [...exercise().sets, ...exercise().sets] }], hist([exercise(), at(1)])).earned, 10);
+  const sameDay = score([exercise()], hist([exercise(), at(2, 7)]));
+  assert.equal(sameDay.earned, 0); assert.deepEqual(lines(sameDay), []);
+  assert.equal(score([exercise()], hist([exercise(), at(2, 23)]), 0, at(3, 0)).earned, 10);
 });
-test('huge values, invalid sets, duplicate exercises and outlier bonuses', () => {
-  for (const [weight,reps] of [[-1,8],[Infinity,8],[NaN,8],[10000,8],[100,-1],[100,0],[100,1.5],[100,101]]) assert.throws(() => scoreWorkout([exercise(weight,reps)], []));
-  assert.throws(() => scoreWorkout([], []));
-  assert.throws(() => scoreWorkout([exercise(),exercise()], []));
-  assert.equal(scoreWorkout([exercise(300)],past(exercise(100))),12);
+test('20 lb milestones: per boundary above the all-time best, capped, baseline-first', () => {
+  const before = (weight, id = 'bench-press') => hist([exercise(weight, 8, id), at(1)]);
+  assert.equal(score([exercise(225)], before(195)).earned, 20);
+  assert.match(score([exercise(225)], before(195)).breakdown[1].label, /Bench Press: 2 × 20 lb milestones/);
+  assert.equal(score([exercise(195)], before(190)).earned, 10);
+  assert.equal(score([exercise(200)], before(199)).earned, 15);
+  assert.equal(score([exercise(300)], before(100)).earned, 25);
+  assert.equal(score([exercise(300)], []).earned, 10);
+  assert.equal(score([exercise(100, 8, 'squat')], before(0)).earned, 10);
+  assert.equal(score([exercise(60, 8, 'row')], hist([exercise(0, 10, 'row'), at(1)])).earned, 10);
+  assert.equal(score([exercise(120), exercise(80, 8, 'row')], hist([exercise(100), at(1)], [exercise(60, 8, 'row'), at(1)])).earned, 20);
+  assert.equal(score([exercise(120)], hist([exercise(100), at(1)], [exercise(150), at(1)])).earned, 10);
+  const manySets = { exerciseId: 'bench-press', sets: [{ weightLbs: 120, reps: 5 }, { weightLbs: 80, reps: 12 }, { weightLbs: 80, reps: 12 }] };
+  assert.equal(score([manySets], before(100)).earned, 15);
+});
+test('weekly target: reached on the 3rd distinct day of a Mon-Sun week, once', () => {
+  const day = d => [exercise(), at(d)];
+  assert.equal(score([exercise()], hist(day(2), day(3)), 0, at(4)).earned, 25);
+  assert.match(score([exercise()], hist(day(2), day(3)), 0, at(4)).breakdown[1].label, /Weekly target/);
+  assert.equal(score([exercise()], hist(day(2)), 0, at(3)).earned, 10);
+  assert.equal(score([exercise()], hist(day(2), day(3), day(4)), 0, at(5)).earned, 10);
+  assert.equal(score([exercise()], hist(day(2), day(2), day(3)), 0, at(3)).earned, 0);
+  assert.equal(score([exercise()], hist(day(2), day(2)), 0, at(3)).earned, 10);
+  // Sunday belongs to the week that started the Monday before; the next Monday starts a fresh week.
+  assert.equal(score([exercise()], hist(day(7), day(8)), 0, at(9)).earned, 10);
+  assert.equal(score([exercise()], hist(day(2), day(7)), 0, at(8)).earned, 25);
+  assert.equal(score([exercise()], hist(day(7), [exercise(), at(8, 23)]), 0, at(9, 0)).earned, 10);
+});
+test('streak: +5 per consecutive earlier week that hit the target, max 5, resets on a miss', () => {
+  const week = (k, days = 3) => [0, 1, 2].slice(0, days).map(offset => [exercise(), new Date(2026, 1, 2 - 7 * k + offset, 12)]);
+  const thisWeek = [[exercise(), at(2)], [exercise(), at(3)]];
+  const run = history => score([exercise()], hist(...history, ...thisWeek), 0, at(4));
+  assert.equal(run([]).earned, 25);
+  assert.equal(run(week(1)).earned, 30);
+  assert.match(run(week(1)).breakdown[2].label, /Streak: 1 week in a row/);
+  assert.equal(run([...week(1), ...week(2)]).earned, 35);
+  assert.equal(run([...week(1), ...week(3)]).earned, 30);
+  assert.equal(run([...week(1, 2), ...week(2), ...week(3)]).earned, 30 - 5);
+  assert.equal(run([1, 2, 3, 4, 5, 6].flatMap(k => week(k))).earned, 25 + 25);
+  const status = weekStatus(hist(...week(1), ...week(2), ...thisWeek, [exercise(), at(4)]), at(4));
+  assert.deepEqual(plain(status), { days: 3, target: 3, streak: 2, trainedToday: true });
+  assert.deepEqual(plain(weekStatus([], at(4))), { days: 0, target: 3, streak: 0, trainedToday: false });
+});
+test('rank multiplier scales earning down as rank rises; goal-free totals never go negative', () => {
+  for (const [elo, session] of [[0, 10], [299, 10], [300, 9], [900, 8], [2000, 7], [4000, 6], [7500, 5], [50000, 5]]) assert.equal(score([exercise()], [], elo).earned, session, `elo ${elo}`);
+  assert.equal(rankMultiplier(0), 1); assert.equal(rankMultiplier(7500), 0.5);
+  const day = d => [exercise(), at(d)];
+  const bigDay = score([exercise(120)], hist(day(2), [exercise(100), at(3)]), 300, at(4));
+  assert.deepEqual(lines(bigDay), [{ label: 'Session', amount: 9 }, { label: 'Weekly target: 3 training days', amount: 14 }, { label: 'Bench Press: 1 × 20 lb milestone', amount: 5 }]);
+  assert.equal(bigDay.earned, 28);
+  assert.equal(score([exercise(120)], hist([exercise(100), at(1)]), 7500).earned, 5 + 3);
+});
+test('huge values, invalid sets and duplicate exercises are rejected', () => {
+  for (const [weight,reps] of [[-1,8],[Infinity,8],[NaN,8],[10000,8],[100,-1],[100,0],[100,1.5],[100,101]]) assert.throws(() => score([exercise(weight,reps)]));
+  assert.throws(() => score([]));
+  assert.throws(() => score([exercise(),exercise()]));
   assert.equal(processWorkout('bench-press',[{weight:'',reps:'8'}]).ok,false);
   assert.equal(processWorkout('bench-press',Array(21).fill({weight:'100',reps:'8'})).ok,false);
 });
-test('persistent history, PB across saves, reload, and idempotent submission', () => {
+test('persistent history, breakdown saved, reload, idempotent and same-day submissions', () => {
   const storage = store();
-  const first = saveWorkout([exercise()], 'one', storage);
-  assert.equal(first.before,0); assert.equal(first.after,12);
-  const second = saveWorkout([exercise(105)], 'two', storage);
-  assert.equal(second.before,12); assert.equal(second.after,36);
+  const first = saveWorkout([exercise()], 'one', storage, at(2));
+  assert.equal(first.before,0); assert.equal(first.after,10);
+  const second = saveWorkout([exercise(105)], 'two', storage, at(3));
+  assert.equal(second.before,10); assert.equal(second.after,20);
   assert.equal(loadData(storage).workouts.length,2);
   assert.equal(loadData(storage).workouts[1].exercises[0].sets[0].weightLbs,105);
-  assert.equal(saveWorkout([exercise(105)], 'two', storage).after,36);
+  assert.equal(saveWorkout([exercise(105)], 'two', storage, at(9)).after,20);
   assert.equal(loadData(storage).workouts.length,2);
-  assert.equal(saveWorkout([exercise(90)], 'three', storage).after,48);
+  const third = saveWorkout([exercise(120)], 'three', storage, at(4));
+  assert.equal(third.earned,30); assert.equal(third.after,50);
+  assert.deepEqual(plain(loadData(storage).workouts[2].breakdown.map(line => line.amount)), [10, 15, 5]);
+  assert.equal(loadData(storage).workouts[2].completedAt, at(4).toISOString());
+  const sameDay = saveWorkout([exercise(90)], 'four', storage, at(4, 18));
+  assert.equal(sameDay.earned,0); assert.equal(sameDay.after,50);
+  assert.equal(loadData(storage).workouts.length,4);
+  assert.equal(loadData(storage).elo,50);
 });
 test('failed writes award nothing; corrupted data is not overwritten', () => {
   const storage = store();
-  saveWorkout([exercise()], 'one', storage);
-  assert.throws(() => saveWorkout([exercise(105)],'two',{getItem:storage.getItem,setItem:()=>{throw new Error('Quota');}}));
-  assert.equal(loadData(storage).elo,12);
+  saveWorkout([exercise()], 'one', storage, at(2));
+  assert.throws(() => saveWorkout([exercise(105)],'two',{getItem:storage.getItem,setItem:()=>{throw new Error('Quota');}}, at(3)));
+  assert.equal(loadData(storage).elo,10);
   let wrote = false;
   assert.throws(() => saveWorkout([exercise()],'one',{getItem:()=>'{broken',setItem:()=>{wrote=true;}}));
   assert.equal(wrote,false);
@@ -81,13 +143,13 @@ test('v1 data loads unchanged and migrates on first save; v1 key is never modifi
   assert.equal(loaded.version, 3); same(loaded.goals, []); assert.equal(loaded.elo, 36); assert.equal(loaded.workouts.length, 2);
   same(loaded.workouts[1], saved('b', exercise(105), 24));
   assert.equal(storage.getItem(V3), null);
-  const reward = saveWorkout([exercise(110)], 'c', storage);
-  assert.equal(reward.before, 36); assert.equal(reward.after, 60);
+  const reward = saveWorkout([exercise(110)], 'c', storage, new Date(2026, 1, 2, 12));
+  assert.equal(reward.before, 36); assert.equal(reward.after, 46);
   assert.equal(storage.getItem(V1), original);
   const v3 = JSON.parse(storage.getItem(V3));
-  assert.equal(v3.version, 3); assert.equal(v3.workouts.length, 3); assert.equal(v3.elo, 60);
+  assert.equal(v3.version, 3); assert.equal(v3.workouts.length, 3); assert.equal(v3.elo, 46);
   same(loadData(storage), loadData(storage));
-  assert.equal(saveWorkout([exercise(120)], 'd', storage).after, 84);
+  assert.equal(saveWorkout([exercise(120)], 'd', storage, new Date(2026, 1, 3, 12)).after, 61);
   assert.equal(storage.getItem(V1), original);
 });
 test('bad entries are quarantined, not fatal; elo is derived from valid workouts', () => {
@@ -112,13 +174,17 @@ test('unreadable or unknown-version data throws and is never overwritten', () =>
     assert.equal(wrote, false); assert.equal(storage.getItem(key), raw);
   }
 });
-test('rank thresholds, progress and Elite cap', () => {
-  for(const [elo,name] of [[0,'Bronze'],[300,'Silver'],[1000,'Gold'],[2500,'Platinum'],[5500,'Diamond'],[11000,'Elite']]) assert.equal(rankProgress(elo).rank,name);
+test('rank thresholds, progress, Elite cap, and no one drops a rank', () => {
+  for(const [elo,name] of [[0,'Bronze'],[300,'Silver'],[900,'Gold'],[2000,'Platinum'],[4000,'Diamond'],[7500,'Elite']]) assert.equal(rankProgress(elo).rank,name);
+  assert.equal(rankProgress(899).rank,'Silver');
   assert.equal(rankProgress(150).percent,50);
   assert.equal(rankProgress(299).remaining,1);
   assert.equal(rankProgress(300).percent,0);
   assert.equal(rankProgress(12000).percent,100);
   assert.equal(rankProgress(12000).next,undefined);
+  // Old thresholds were Silver 300, Gold 1000, Platinum 2500, Diamond 5500, Elite 11000.
+  const names = RANKS.map(rank => rank.name);
+  for(const [elo,name] of [[300,'Silver'],[1000,'Gold'],[2500,'Platinum'],[5500,'Diamond'],[11000,'Elite']]) assert.ok(names.indexOf(rankProgress(elo).rank) >= names.indexOf(name), `${elo} keeps ${name}`);
 });
 
 test('catalog: unique ids, valid tags, legacy ids and limits preserved', () => {
@@ -162,14 +228,14 @@ test('processSession: limits, duplicates, per-entry errors, success', () => {
 });
 test('multi-exercise session scores and round-trips through storage', () => {
   const session = [exercise(100, 8, 'bench-press'), exercise(200, 5, 'squat'), exercise(50, 10, 'lat-pulldown')];
-  assert.equal(scoreWorkout(session, []), 16);
+  assert.equal(score(session).earned, 10);
   const storage = store();
-  const reward = saveWorkout(session, 'multi', storage);
-  assert.equal(reward.earned, 16);
+  const reward = saveWorkout(session, 'multi', storage, at(2));
+  assert.equal(reward.earned, 10);
   const loaded = loadData(storage);
   assert.equal(loaded.workouts[0].exercises.length, 3);
-  assert.equal(loaded.elo, 16);
-  assert.equal(scoreWorkout([exercise(105, 8, 'bench-press')], loaded.workouts), 24);
+  assert.equal(loaded.elo, 10);
+  assert.equal(score([exercise(125, 8, 'bench-press')], loaded.workouts, loaded.elo, at(3)).earned, 15);
 });
 test('draft: round-trip, tolerant load, blocked storage, separate from saved data', () => {
   const data = new Map();

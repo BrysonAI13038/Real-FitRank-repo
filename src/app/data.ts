@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { loadData, type SavedData, type SavedWorkout } from "../workout/storage";
+import { weekStart } from "../workout/scoring";
 
 export function useWorkoutData() {
   const [data, setData] = useState<SavedData | null>(null);
@@ -18,9 +19,7 @@ export function useWorkoutData() {
 }
 
 export function summarize(workouts: SavedWorkout[], now = new Date()) {
-  const start = new Date(now);
-  start.setHours(0, 0, 0, 0);
-  start.setDate(start.getDate() - (start.getDay() + 6) % 7);
+  const start = weekStart(now);
   return {
     workouts: workouts.length,
     thisWeek: workouts.filter(workout => new Date(workout.completedAt) >= start && new Date(workout.completedAt) <= now).length,

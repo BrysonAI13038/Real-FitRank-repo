@@ -1,12 +1,11 @@
 import type { Workout } from "./model";
-import { scoreWorkout } from "./scoring";
+import { scoreWorkout, type Breakdown } from "./scoring";
 import { isGoal, validateGoal, type Goal, type GoalInput } from "./goals";
 
 const V1_KEY = "fitrank.workouts.v1";
 const V2_KEY = "fitrank.data.v2";
 const KEY = "fitrank.data.v3";
-// Why a workout earned what it did, one line per source. Absent on workouts saved before v3.
-export type Breakdown = { label: string; amount: number }[];
+// breakdown: why a workout earned what it did, one line per source. Absent on workouts saved before v3.
 export type SavedWorkout = { id: string; completedAt: string; exercises: Workout[]; earned: number; breakdown?: Breakdown };
 // elo is always derived from workouts. quarantine keeps raw entries (workouts or
 // goals) that failed validation so they are never deleted.
@@ -80,7 +79,7 @@ export function loadData(storage: Pick<Storage, "getItem"> = localStorage): Save
   if (!v1) return { version: 3, workouts: [], goals: [], elo: 0, quarantine: [] };
   return normalize(parse(v1, 1).workouts, [], []);
 }
-export function saveWorkout(exercises: Workout[], id: string, storage: Pick<Storage, "getItem" | "setItem"> = localStorage): Reward {
+export function saveWorkout(exercises: Workout[], id: string, storage: Pick<Storage, "getItem" | "setItem"> = localStorage, now = new Date()): Reward {
   const data = loadData(storage);
   const existingIndex = data.workouts.findIndex(workout => workout.id === id);
   if (existingIndex >= 0) {
@@ -88,10 +87,10 @@ export function saveWorkout(exercises: Workout[], id: string, storage: Pick<Stor
     const before = data.workouts.slice(0, existingIndex).reduce((sum, item) => sum + item.earned, 0);
     return { workoutCount: existingIndex + 1, workout, before, after: before + workout.earned, earned: workout.earned };
   }
-  const earned = scoreWorkout(exercises, data.workouts);
+  const { earned, breakdown } = scoreWorkout(exercises, data.workouts, data.elo, now);
   const after = data.elo + earned;
   if (!Number.isSafeInteger(after)) throw new Error("ELO total is outside the supported range.");
-  const workout: SavedWorkout = { id, completedAt: new Date().toISOString(), exercises, earned };
+  const workout: SavedWorkout = { id, completedAt: now.toISOString(), exercises, earned, breakdown };
   storage.setItem(KEY, JSON.stringify({ ...data, workouts: [...data.workouts, workout], elo: after } satisfies SavedData));
   return { workoutCount: data.workouts.length + 1, workout, before: data.elo, after, earned };
 }
