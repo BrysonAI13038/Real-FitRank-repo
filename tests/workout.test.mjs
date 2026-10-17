@@ -65,6 +65,48 @@ test('failed writes award nothing; corrupted data is not overwritten', () => {
   assert.throws(() => saveWorkout([exercise()],'one',{getItem:()=>'{broken',setItem:()=>{wrote=true;}}));
   assert.equal(wrote,false);
 });
+const V1 = 'fitrank.workouts.v1', V2 = 'fitrank.data.v2';
+const saved = (id, ex = exercise(), earned = 12) => ({ id, completedAt: '2026-01-01T00:00:00.000Z', exercises: [ex], earned });
+const same = (a, b) => assert.equal(JSON.stringify(a), JSON.stringify(b));
+const v1Store = workouts => { const s = store(); s.setItem(V1, JSON.stringify({ version: 1, workouts, elo: workouts.reduce((n, w) => n + w.earned, 0) })); return s; };
+test('v1 data loads unchanged and migrates on first save; v1 key is never modified', () => {
+  const storage = v1Store([saved('a'), saved('b', exercise(105), 24)]);
+  const original = storage.getItem(V1);
+  const loaded = loadData(storage);
+  assert.equal(loaded.version, 2); assert.equal(loaded.elo, 36); assert.equal(loaded.workouts.length, 2);
+  same(loaded.workouts[1], saved('b', exercise(105), 24));
+  assert.equal(storage.getItem(V2), null);
+  const reward = saveWorkout([exercise(110)], 'c', storage);
+  assert.equal(reward.before, 36); assert.equal(reward.after, 60);
+  assert.equal(storage.getItem(V1), original);
+  const v2 = JSON.parse(storage.getItem(V2));
+  assert.equal(v2.version, 2); assert.equal(v2.workouts.length, 3); assert.equal(v2.elo, 60);
+  same(loadData(storage), loadData(storage));
+  assert.equal(saveWorkout([exercise(120)], 'd', storage).after, 84);
+  assert.equal(storage.getItem(V1), original);
+});
+test('bad entries are quarantined, not fatal; elo is derived from valid workouts', () => {
+  const bad = { id: 'x', completedAt: 'nope', exercises: [], earned: 5 };
+  const storage = v1Store([saved('a'), bad, saved('a'), saved('b', exercise(600), 200)]);
+  const loaded = loadData(storage);
+  same(loaded.workouts.map(w => w.id), ['a', 'b']);
+  assert.equal(loaded.elo, 212);
+  same(loaded.quarantine, [bad, saved('a')]);
+  saveWorkout([exercise()], 'c', storage);
+  same(JSON.parse(storage.getItem(V2)).quarantine, [bad, saved('a')]);
+  const mismatched = store();
+  mismatched.setItem(V1, JSON.stringify({ version: 1, workouts: [saved('a')], elo: 999 }));
+  assert.equal(loadData(mismatched).elo, 12);
+});
+test('unreadable or unknown-version data throws and is never overwritten', () => {
+  for (const [key, raw] of [[V2, '{broken'], [V2, '{"version":3,"workouts":[]}'], [V1, '{broken'], [V1, '{"version":1}'], [V2, 'null']]) {
+    const storage = store(); storage.setItem(key, raw);
+    let wrote = false;
+    assert.throws(() => loadData(storage), /Nothing was overwritten/);
+    assert.throws(() => saveWorkout([exercise()], 'n', { getItem: storage.getItem, setItem: () => { wrote = true; } }));
+    assert.equal(wrote, false); assert.equal(storage.getItem(key), raw);
+  }
+});
 test('rank thresholds, progress and Elite cap', () => {
   for(const [elo,name] of [[0,'Bronze'],[300,'Silver'],[1000,'Gold'],[2500,'Platinum'],[5500,'Diamond'],[11000,'Elite']]) assert.equal(rankProgress(elo).rank,name);
   assert.equal(rankProgress(150).percent,50);
