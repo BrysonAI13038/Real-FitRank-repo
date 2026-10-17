@@ -33,7 +33,7 @@ export type ScoreResult = { earned: number; breakdown: Breakdown; achievedGoalId
 // Goal rewards (set when the goal was created) are added on top and are not rank-scaled.
 export const SCORING = { session: 10, weekly: 15, weeklyDays: 3, streakPerWeek: 5, streakMaxWeeks: 5, effort: 3, effortMinSets: 3, effortCap: 5, milestoneLbs: 20, milestone: 5, milestoneCap: 3 };
 
-const dayKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+export const dayKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 // Local-time Monday 00:00 of the week containing `date`.
 export function weekStart(date: Date) {
   const start = new Date(date);

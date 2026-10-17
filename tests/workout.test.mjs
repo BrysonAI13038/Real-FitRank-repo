@@ -20,6 +20,7 @@ const { validateGoal, goalReward, currentBest, isGoalMet, GoalError } = load('go
 const { processWorkout, processSession } = load('model');
 const { exercises, searchExercises, MUSCLE_GROUPS } = load('exercises');
 const { loadDraft, saveDraft, clearDraft } = load('draft');
+const { exerciseSeries, personalRecords, weeklyCounts, eloSeries, muscleSets } = load('stats');
 const exercise = (weight = 100, reps = 8, exerciseId = 'bench-press') => ({ exerciseId, sets: [{ weightLbs: weight, reps }] });
 function store() {
   const data = new Map();
@@ -449,4 +450,39 @@ test('effort bonus: +3 per exercise with 3+ sets, 5 per day, no repeat credit, r
   assert.equal(score([setsOf(3)], morning, 0, at(3)).earned, 13);
   assert.equal(score([setsOf(3), setsOf(3, 'row')], [], 7500).earned, 5 + 3);
   assert.equal(score([setsOf(3)], [], 300).earned, 9 + 3);
+});
+
+test('stats: per-exercise series, volume and bodyweight handling', () => {
+  const history = [
+    { exercises: [{ exerciseId: 'bench-press', sets: [{ weightLbs: 100, reps: 8 }, { weightLbs: 120, reps: 5 }] }, exercise(50, 10, 'row')], completedAt: at(2).toISOString(), earned: 10 },
+    { exercises: [exercise(0, 12, 'bench-press')], completedAt: at(4).toISOString(), earned: 10 },
+  ];
+  const series = plain(exerciseSeries(history, 'bench-press'));
+  assert.deepEqual(series.map(p => [p.bestWeight, p.bestReps, p.volume]), [[120, 8, 1400], [0, 12, 0]]);
+  assert.deepEqual(plain(exerciseSeries(history, 'squat')), []);
+});
+test('stats: personal records pick heaviest set, ties by reps', () => {
+  const history = [
+    { exercises: [exercise(100, 5), exercise(0, 10, 'row')], completedAt: at(2).toISOString() },
+    { exercises: [exercise(100, 8), exercise(50, 3, 'row')], completedAt: at(3).toISOString() },
+  ];
+  const records = plain(personalRecords(history));
+  assert.deepEqual(records.map(r => [r.exerciseId, r.weightLbs, r.reps, r.name]), [['bench-press', 100, 8, 'Bench Press'], ['row', 50, 3, exercises.find(e => e.id === 'row').name]]);
+  assert.deepEqual(plain(personalRecords([])), []);
+});
+test('stats: weekly counts are distinct days per Mon-Sun week, oldest first', () => {
+  const history = hist([exercise(), at(2)], [exercise(), at(2, 18)], [exercise(), at(4)], [exercise(), at(10)]);
+  const counts = plain(weeklyCounts(history, 3, at(11)).map(w => w.days));
+  assert.deepEqual(counts, [0, 2, 1]);
+  assert.equal(weeklyCounts([], 12, at(11)).length, 12);
+});
+test('stats: ELO series accumulates earned; muscle sets cover every group', () => {
+  const history = hist([exercise(), at(2)], [exercise(50, 8, 'squat'), at(3)]).map((w, i) => ({ ...w, earned: [10, 15][i] }));
+  assert.deepEqual(plain(eloSeries(history)).map(p => p.elo), [10, 25]);
+  assert.deepEqual(plain(eloSeries([])), []);
+  const muscles = plain(muscleSets(history));
+  assert.equal(muscles.length, MUSCLE_GROUPS.length);
+  assert.equal(muscles.find(m => m.muscle === 'Chest').sets, 1);
+  assert.equal(muscles.find(m => m.muscle === 'Quads').sets, 1);
+  assert.equal(muscles.find(m => m.muscle === 'Calves').sets, 0);
 });

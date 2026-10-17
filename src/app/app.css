@@ -115,3 +115,22 @@
 .app-elo-help summary:focus-visible { outline:2px solid #f59e0b; outline-offset:4px; }
 .app-elo-help p { margin-top:12px; line-height:1.6; }
 @media(max-width:700px) { .app-introduction { margin:0 auto; } }
+.app-filter { display:grid; gap:6px; max-width:320px; margin-bottom:24px; }
+.app-filter select { background:#0c0c0e; color:#f4f4f5; border:1px solid #3f3f46; border-radius:2px; padding:10px 12px; font-size:16px; min-height:44px; }
+.app-filter~section { margin-bottom:28px; }
+.app-filter~.app-button { margin-bottom:24px; }
+.app-breakdown { list-style:none; margin:12px 0 0; padding:10px 0 0; border-top:1px solid #26262b; display:grid; gap:6px; font-size:12px; color:#b7b7c0; }
+.app-breakdown li { display:flex; justify-content:space-between; gap:12px; }
+.app-chart { width:100%; height:auto; display:block; margin-top:12px; }
+.app-chart line { stroke:#26262b; stroke-width:1; }
+.app-chart text { fill:#96969f; font-size:9px; font-family:Inter,sans-serif; }
+.app-chart polyline { fill:none; stroke:#f59e0b; stroke-width:2; stroke-linejoin:round; stroke-linecap:round; }
+.app-chart circle { fill:#f59e0b; }
+.app-chart rect { fill:#f59e0b; }
+.app-chart .app-chart-target line { stroke:#96969f; stroke-dasharray:4 3; }
+.app-chart-empty { margin-top:12px; font-size:12px; color:#96969f; }
+.app-select { display:block; width:100%; max-width:320px; margin:6px 0 12px; background:#0c0c0e; color:#f4f4f5; border:1px solid #3f3f46; border-radius:2px; padding:10px 12px; font-size:16px; min-height:44px; }
+.app-records { list-style:none; margin:12px 0 0; padding:0; display:grid; gap:10px; }
+.app-records li { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; font-size:12px; color:#96969f; border-top:1px solid #26262b; padding-top:10px; }
+.app-records li>span:first-child { color:#f4f4f5; }
+.app-records strong { color:#f59e0b; font-variant-numeric:tabular-nums; }

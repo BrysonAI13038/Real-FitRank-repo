@@ -107,3 +107,28 @@ test('goals card: empty state, set-a-goal entry, active and achieved goals, cap'
   assert.match(full,/You have 3 active goals/);
   assert.doesNotMatch(full,/\+ Set a goal/);
 });
+test('history shows ELO breakdown, month groups, exercise filter and paging',()=>{
+  const withBreakdown={version:3,elo:16,quarantine:[],goals:[],workouts:[
+    {id:'a',completedAt:'2026-08-30T12:00:00',earned:10,exercises:[{exerciseId:'squat',sets:[{weightLbs:150,reps:5}]}]},
+    {id:'b',completedAt:'2026-09-20T12:00:00',earned:16,breakdown:[{label:'Session',amount:10},{label:'Effort: 1 exercise with 3+ sets',amount:6}],exercises:[{exerciseId:'bench-press',sets:[{weightLbs:100,reps:8}]}]}]};
+  const html=render(Workouts,{data:withBreakdown});
+  assert.match(html,/How this session earned ELO/);
+  assert.match(html,/Effort: 1 exercise with 3\+ sets/);
+  assert.match(html,/August 2026/); assert.match(html,/September 2026/);
+  assert.match(html,/<option value="squat">Squat<\/option>/);
+  assert.match(html,/1 session/);
+  assert.doesNotMatch(html,/Show more/);
+  const many={...withBreakdown,workouts:Array.from({length:25},(_,i)=>workout('w'+i,new Date(2026,0,1+i,12).toISOString(),100,10))};
+  assert.match(render(Workouts,{data:many}),/Show more \(5 older\)/);
+});
+test('progress charts: hidden when empty, labelled SVG charts and records with history',()=>{
+  assert.doesNotMatch(render(Progress,{data:empty}),/ELO over time|Personal records/);
+  const html=render(Progress,{data});
+  assert.match(html,/<svg[^>]*role="img"[^>]*aria-label="ELO over time: 2 sessions, from 12 to 36"/);
+  assert.match(html,/Weekly consistency/);
+  assert.match(html,/aria-label="Bench Press heaviest set: 2 sessions, from 100 lbs to 105 lbs"/);
+  assert.match(html,/Personal records/);
+  assert.match(html,/105 lbs × 8/);
+  const one={...data,workouts:[data.workouts[0]]};
+  assert.match(render(Progress,{data:one}),/Log at least two sessions to see a trend/);
+});
