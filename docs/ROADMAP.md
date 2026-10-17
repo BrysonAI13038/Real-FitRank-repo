@@ -10,7 +10,7 @@
 
 ## Next
 
-1. **Housekeeping.** Pick one package manager (pnpm, per `.mise.toml`) and remove the other lockfile. Add `netlify.toml` with the build command and `dist` publish directory. Replace the stale Figma Make `AGENTS.md`. Add a `test` script.
+1. **Housekeeping.** Mostly done: npm is the package manager (matches Netlify), `pnpm-lock.yaml` removed, `netlify.toml` added, `npm test` script added. Remaining: replace the stale Figma Make `AGENTS.md`.
 2. **Data model v2.** Versioned save under a new key (v1 left untouched as a backup), a tolerant `loadData` that quarantines bad entries instead of failing, and a v1 → v2 migration.
 3. **Exercise library and workout logger.** A larger searchable exercise library with muscle-group tags, and a multi-exercise logger with per-set weight and reps.
 4. **ELO redesign.** Only when explicitly requested. No ELO loss for missed workouts.
