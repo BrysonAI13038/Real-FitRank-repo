@@ -6,10 +6,10 @@ Full project context: docs/ROADMAP.md (read only when needed).
 
 ## Stack
 - React 19 + Vite 8 + TypeScript + Tailwind CSS v4 (originally exported from Figma Make)
-- Package manager: pnpm (see .mise.toml). Don't use npm.
+- Package manager: npm. Use `npm run dev`, `npm run build`, `npm test`. Never use pnpm.
 - Start: src/main.tsx → src/App.tsx. Global CSS in src/index.css.
 - Storage: browser localStorage (no backend yet). Hosted on Netlify.
-- The dev server is NOT running automatically. Start it with `pnpm dev`.
+- The dev server is NOT running automatically. Start it with `npm run dev`.
 
 ## Rules
 - Never break existing saved localStorage data. Changing the data shape requires a migration.
