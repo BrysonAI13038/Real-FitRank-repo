@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { loadData, type SavedData, type SavedWorkout } from "../workout/storage";
+import type { ScopedStorage } from "../cloud/scopedStorage";
 import { weekStart } from "../workout/scoring";
 
-export function useWorkoutData() {
+export function useWorkoutData(storage: ScopedStorage) {
   const [data, setData] = useState<SavedData | null>(null);
   const [error, setError] = useState("");
   const refresh = useCallback(() => {
-    try { setData(loadData()); setError(""); }
+    try { setData(loadData(storage)); setError(""); }
     catch { setData(null); setError("Your saved workouts couldn’t be loaded. Nothing has been changed. Check browser storage access, then try again."); }
-  }, []);
+  }, [storage]);
   useEffect(() => {
     refresh();
     window.addEventListener("storage", refresh);

@@ -7,6 +7,10 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const JWT = /eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g;
+// New-format keys are a prefix plus a long random string. The Supabase library itself contains
+// the bare prefixes (it uses startsWith to refuse secret keys in browsers), so require the key body.
+const PUBLISHABLE = /sb_publishable_[A-Za-z0-9_-]{16,}/g;
+const SECRET = /sb_secret_[A-Za-z0-9_-]{16,}/;
 
 function* files(dir) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -26,8 +30,8 @@ export function scanDist(dir) {
       found.jwts.push({ file, role, jwt });
       if (role !== "anon") found.problems.push(`${file}: JWT key with role "${role}" (only "anon" is allowed)`);
     }
-    for (const key of text.match(/sb_publishable_[A-Za-z0-9_-]+/g) ?? []) found.publishable.push({ file, key });
-    if (text.includes("sb_secret_")) found.problems.push(`${file}: contains "sb_secret_"`);
+    for (const key of text.match(PUBLISHABLE) ?? []) found.publishable.push({ file, key });
+    if (SECRET.test(text)) found.problems.push(`${file}: contains an sb_secret_ key`);
   }
   if (!found.jwts.length && !found.publishable.length) found.problems.push("No anon or publishable key found. Were VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY set for this build?");
   return found;

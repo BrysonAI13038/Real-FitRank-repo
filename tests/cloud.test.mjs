@@ -226,8 +226,79 @@ test('check-dist-keys accepts an anon key and fails on a service_role JWT or an 
     return scanDist(dir).problems;
   };
   assert.deepEqual(scan(`const k="${jwt('anon')}";`), []);
-  assert.deepEqual(scan('const k="sb_publishable_abc123";'), []);
+  assert.deepEqual(scan('const k="sb_publishable_abcdefghijklmnop1234";'), []);
+  // The Supabase library contains the bare prefixes; that is not a leaked key.
+  assert.deepEqual(scan('const a=k=>k.startsWith("sb_publishable_")||k.startsWith("sb_secret_");const k="sb_publishable_abcdefghijklmnop1234";'), []);
   assert.equal(scan(`const k="${jwt('anon')}",s="${jwt('service_role')}";`).length, 1);
-  assert.equal(scan('const s="sb_secret_abc123";').length >= 1, true);
+  assert.equal(scan('const s="sb_secret_abcdefghijklmnop1234";').length >= 1, true);
   assert.equal(scan('console.log("no keys")').length, 1);
+});
+
+// ---- device import: once per device, first account only ----
+const { deviceImportState, setImportStatus, importDeviceData, DEVICE_IMPORT_KEY } = load(src('cloud/deviceImport'));
+const v1Raw = JSON.stringify({ version: 1, workouts: [workout('old1', 2, 15), workout('old2', 3, 20)] });
+// Everything on the device except our own import record and account-scoped keys.
+const originals = base => Object.fromEntries(Object.entries(base.dump()).filter(([key]) => key !== DEVICE_IMPORT_KEY && !key.startsWith('u.')));
+
+test('device import: the first account is offered the device data, with counts', () => {
+  const base = store({ 'fitrank.workouts.v1': v1Raw });
+  assert.deepEqual(plain(deviceImportState('alice', base)), { status: 'offered', workouts: 2, goals: 0 });
+});
+
+test('device import: a second account is never offered it, even after the first is gone', () => {
+  const base = store({ 'fitrank.workouts.v1': v1Raw });
+  deviceImportState('alice', base);
+  assert.equal(deviceImportState('bob', base), null);
+  // alice declines, alice's scoped data is cleared (account deleted): bob still gets nothing.
+  setImportStatus('alice', 'declined', base);
+  clearScoped('alice', base);
+  assert.equal(deviceImportState('bob', base), null);
+  assert.throws(() => importDeviceData('bob', base, scopedStorage('bob', base)), /isn’t available/);
+});
+
+test('device import: a device with no old data records nothing and offers nothing to anyone', () => {
+  const base = store();
+  assert.equal(deviceImportState('alice', base), null);
+  assert.equal(base.getItem(DEVICE_IMPORT_KEY), null);
+});
+
+test('device import: Yes copies workouts into the account, keeps the originals byte-identical, then stops offering', () => {
+  const base = store({ 'fitrank.workouts.v1': v1Raw, 'unrelated': 'x' });
+  const before = originals(base);
+  deviceImportState('alice', base);
+  const scoped = scopedStorage('alice', base);
+  assert.equal(importDeviceData('alice', base, scoped, NOW), 2);
+  const data = loadData(scoped);
+  assert.deepEqual(plain(data.workouts.map(w => w.id)), ['old1', 'old2']);
+  assert.equal(data.elo, 35);
+  assert.deepEqual(originals(base), before);
+  assert.equal(deviceImportState('alice', base).status, 'imported');
+  assert.throws(() => importDeviceData('alice', base, scoped, NOW), /isn’t available/);
+});
+
+test('device import: No, then "Import data from this device" later, still works', () => {
+  const base = store({ 'fitrank.workouts.v1': v1Raw });
+  deviceImportState('alice', base);
+  setImportStatus('alice', 'declined', base);
+  assert.equal(deviceImportState('alice', base).status, 'declined');
+  const scoped = scopedStorage('alice', base);
+  assert.equal(importDeviceData('alice', base, scoped, NOW), 2);
+  assert.equal(deviceImportState('alice', base).status, 'imported');
+});
+
+test('device import: workouts already logged under the account are kept and not duplicated', () => {
+  const base = store({ 'fitrank.workouts.v1': v1Raw });
+  deviceImportState('alice', base);
+  const scoped = scopedStorage('alice', base);
+  writeData(dataOf({ workouts: [workout('new1', 8, 9), workout('old1', 2, 15)] }), scoped);
+  assert.equal(importDeviceData('alice', base, scoped, NOW), 1);
+  const data = loadData(scoped);
+  assert.deepEqual(plain(data.workouts.map(w => w.id)), ['old1', 'old2', 'new1']);
+  assert.equal(data.elo, 44);
+});
+
+test('device import: unreadable device data is never offered and never touched', () => {
+  const base = store({ 'fitrank.data.v3': '{not json' });
+  assert.equal(deviceImportState('alice', base), null);
+  assert.equal(base.getItem('fitrank.data.v3'), '{not json');
 });

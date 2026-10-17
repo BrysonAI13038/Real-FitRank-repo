@@ -1,5 +1,6 @@
 import { useId, useState, type FormEvent } from "react";
 import { exercises } from "../workout/model";
+import { useAccount } from "../cloud/accountContext";
 import { addGoal, deleteGoal, withSaveLock, type SavedData } from "../workout/storage";
 import { currentBest, GOAL_RULES, GoalError, goalLabel, validateGoal, type GoalInput, type GoalKind } from "../workout/goals";
 
@@ -8,6 +9,7 @@ const date = (iso?: string) => iso ? new Date(iso).toLocaleDateString(undefined,
 
 export default function Goals({ data, onChange }: { data: SavedData; onChange?: () => void }) {
   const id = useId();
+  const { storage } = useAccount();
   const [open, setOpen] = useState(false);
   const [exerciseId, setExerciseId] = useState("");
   const [kind, setKind] = useState<GoalKind>("weight");
@@ -33,7 +35,7 @@ export default function Goals({ data, onChange }: { data: SavedData; onChange?: 
     setBusy(true);
     setMessage("");
     try {
-      await withSaveLock(() => addGoal(input, crypto.randomUUID()));
+      await withSaveLock(() => addGoal(input, crypto.randomUUID(), storage));
       setOpen(false); setExerciseId(""); setTarget(""); setAtWeight("");
       onChange?.();
     } catch (cause) {
@@ -42,7 +44,7 @@ export default function Goals({ data, onChange }: { data: SavedData; onChange?: 
   }
   async function remove(goalId: string) {
     setMessage("");
-    try { await withSaveLock(() => deleteGoal(goalId)); onChange?.(); }
+    try { await withSaveLock(() => deleteGoal(goalId, storage)); onChange?.(); }
     catch { setMessage("Couldn’t remove that goal. Check browser storage and try again."); }
   }
 

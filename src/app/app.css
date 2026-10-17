@@ -141,3 +141,8 @@
 .fitrank-app a,.fitrank-app button,.fitrank-app select,.fitrank-app summary { touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
 /* Installed (standalone) app: no rubber-band overscroll. */
 @media(display-mode:standalone) { html,body { overscroll-behavior:none; } }
+
+/* Sign-in and device import prompts */
+.app-signin,.app-import { max-width:520px; }
+.app-signin>button,.app-import>button { margin-right:12px; }
+.app-signin-note { color:#a1a1aa; font-size:12px; }

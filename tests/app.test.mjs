@@ -25,7 +25,12 @@ const { Home, Workouts, Progress, Food, Settings } = load('src/app/pages.tsx');
 const empty = {version:3,workouts:[],goals:[],elo:0};
 const workout = (id,date,weight,earned) => ({id,completedAt:date,earned,exercises:[{exerciseId:'bench-press',sets:[{weightLbs:weight,reps:8}]}]});
 const data = {version:3,elo:36,goals:[],workouts:[workout('one','2026-09-14T12:00:00',100,12),workout('two','2026-09-18T12:00:00',105,24)]};
-const render = (component,props) => renderToStaticMarkup(React.createElement(component,props));
+// Screens that read the signed-in account get a fake one backed by memory.
+const { AccountContext } = load('src/cloud/accountContext.ts');
+const memory = new Map();
+const account = { user:{id:'test-user'}, storage:{getItem:key=>memory.get(key)??null,setItem:(key,value)=>memory.set(key,value),removeItem:key=>memory.delete(key)},
+  sync:{state:'idle',rejected:[]}, syncNow(){}, dataVersion:0, deviceImport:null, importDevice:async()=>0, declineImport(){} };
+const render = (component,props) => renderToStaticMarkup(React.createElement(AccountContext.Provider,{value:account},React.createElement(component,props)));
 test('fresh browser renders honest empty home, history and progress',()=>{
   assert.match(render(Home,{data:empty}),/Bronze/);
   assert.match(render(Home,{data:empty}),/Your first session/);

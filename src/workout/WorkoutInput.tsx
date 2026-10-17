@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import ExercisePicker from "./ExercisePicker";
+import { useAccount } from "../cloud/accountContext";
 import { clearDraft, loadDraft, saveDraft } from "./draft";
 import { exercises, MAX_EXERCISES, MAX_SETS, processSession, type SessionErrors, type SetInput, type Workout } from "./model";
 
@@ -12,16 +13,17 @@ type Entry = { exerciseId: string; sets: SetRow[] };
 
 export default function WorkoutInput({ onSubmit, onCancel }: { onSubmit: (exercises: Workout[]) => void; onCancel: () => void }) {
   const prefix = useId();
+  const { storage } = useAccount();
   const nextId = useRef(0);
   const row = (set: SetInput = { weight: "", reps: "" }): SetRow => ({ id: nextId.current++, weight: set.weight, reps: set.reps });
-  const [entries, setEntries] = useState<Entry[]>(() => loadDraft().map(entry => ({ exerciseId: entry.exerciseId, sets: entry.sets.map(set => row(set)) })));
+  const [entries, setEntries] = useState<Entry[]>(() => loadDraft(storage).map(entry => ({ exerciseId: entry.exerciseId, sets: entry.sets.map(set => row(set)) })));
   const [picking, setPicking] = useState(false);
   const [errors, setErrors] = useState<SessionErrors>({ entries: [] });
   const full = entries.length >= MAX_EXERCISES;
 
   useEffect(() => {
-    saveDraft(entries.map(entry => ({ exerciseId: entry.exerciseId, sets: entry.sets.map(({ weight, reps }) => ({ weight, reps })) })));
-  }, [entries]);
+    saveDraft(entries.map(entry => ({ exerciseId: entry.exerciseId, sets: entry.sets.map(({ weight, reps }) => ({ weight, reps })) })), storage);
+  }, [entries, storage]);
 
   const update = (exerciseId: string, change: (sets: SetRow[]) => SetRow[]) =>
     setEntries(current => current.map(entry => entry.exerciseId === exerciseId ? { ...entry, sets: change(entry.sets) } : entry));
@@ -70,7 +72,7 @@ export default function WorkoutInput({ onSubmit, onCancel }: { onSubmit: (exerci
     <div className="mt-4 space-y-3">
       {!picking && <button type="button" disabled={full} className={secondary} onClick={() => setPicking(true)}>{full ? `Max ${MAX_EXERCISES} exercises per session` : "+ Add exercise"}</button>}
       <button type="submit" className={primary}>Finish session →</button>
-      {entries.length > 0 && <button type="button" className={secondary} onClick={() => { if (window.confirm("Discard this session? Your entries will be cleared.")) { clearDraft(); setEntries([]); resetErrors(); } }}>Discard session</button>}
+      {entries.length > 0 && <button type="button" className={secondary} onClick={() => { if (window.confirm("Discard this session? Your entries will be cleared.")) { clearDraft(storage); setEntries([]); resetErrors(); } }}>Discard session</button>}
       <button type="button" className={secondary} onClick={onCancel}>← Back</button>
     </div>
   </form>;
