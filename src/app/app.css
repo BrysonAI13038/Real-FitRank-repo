@@ -1,11 +1,11 @@
-.fitrank-app { min-height:100vh; background:#0c0c0e; color:#f4f4f5; font-family:Inter,sans-serif; font-size:13px; line-height:1.6; color-scheme:dark; font-variant-numeric:tabular-nums; }
+.fitrank-app { min-height:100vh; min-height:100dvh; background:#0c0c0e; color:#f4f4f5; font-family:Inter,sans-serif; font-size:13px; line-height:1.6; color-scheme:dark; font-variant-numeric:tabular-nums; }
 .fitrank-app * { box-sizing:border-box; }
 .fitrank-app h1,.fitrank-app h2,.fitrank-app h3,.app-wordmark { font-family:"Barlow Condensed",sans-serif; line-height:1.15; }
 .fitrank-app h1 { font-size:32px; font-weight:700; letter-spacing:.02em; }
 .fitrank-app h2 { font-size:24px; font-weight:600; }
 .fitrank-app h3 { font-size:20px; font-weight:600; }
 .fitrank-app p { color:#b7b7c0; }
-.app-header { height:80px; max-width:1120px; margin:auto; padding:0 32px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #26262b; }
+.app-header { height:calc(80px + env(safe-area-inset-top)); max-width:1120px; margin:auto; padding:env(safe-area-inset-top) max(32px,env(safe-area-inset-right)) 0 max(32px,env(safe-area-inset-left)); display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #26262b; }
 .app-wordmark { font-size:26px; font-weight:700; letter-spacing:.08em; text-decoration:none; }
 .app-header>span { font-size:11px; color:#96969f; }
 .app-nav { display:flex; gap:8px; max-width:1120px; margin:auto; padding:16px 32px; border-bottom:1px solid #26262b; }
@@ -82,11 +82,13 @@
 .app-form select:focus,.app-form input:focus { outline:none; border-color:#f59e0b; }
 .app-form-note { font-size:12px; min-height:1.6em; }
 @media(max-width:700px) {
- .app-header { height:64px; padding:0 20px; }
+ .app-header { height:calc(64px + env(safe-area-inset-top)); padding:env(safe-area-inset-top) max(20px,env(safe-area-inset-right)) 0 max(20px,env(safe-area-inset-left)); }
  .app-header>span { font-size:10px; }
- .app-main { padding:24px 20px calc(100px + env(safe-area-inset-bottom)); }
+ .app-main { padding:24px max(20px,env(safe-area-inset-right)) calc(96px + env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left)); }
  .app-nav { position:fixed; z-index:20; bottom:0; left:0; right:0; padding:8px 4px calc(8px + env(safe-area-inset-bottom)); background:#0c0c0e; border-top:1px solid #26262b; gap:0; justify-content:space-around; }
- .app-nav a { padding:12px 6px; font-size:11px; min-width:0; }
+ .app-nav a { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; min-height:48px; padding:6px; font-size:11px; min-width:0; }
+ .app-nav-soon { display:block; line-height:1.1; }
+ .fitrank-app input,.fitrank-app select,.fitrank-app textarea { font-size:16px; }
  .app-dashboard { grid-template-columns:1fr; }
  .app-page-heading { align-items:flex-start; flex-direction:column; margin-bottom:24px; }
  .app-page-heading h1 { font-size:28px; }
@@ -134,3 +136,8 @@
 .app-records li { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; font-size:12px; color:#96969f; border-top:1px solid #26262b; padding-top:10px; }
 .app-records li>span:first-child { color:#f4f4f5; }
 .app-records strong { color:#f59e0b; font-variant-numeric:tabular-nums; }
+
+/* Touch behaviour: no double-tap delay or grey tap flash. */
+.fitrank-app a,.fitrank-app button,.fitrank-app select,.fitrank-app summary { touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+/* Installed (standalone) app: no rubber-band overscroll. */
+@media(display-mode:standalone) { html,body { overscroll-behavior:none; } }

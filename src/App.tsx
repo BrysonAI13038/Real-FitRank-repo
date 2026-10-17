@@ -24,7 +24,7 @@ export default function App() {
   }, [refresh]);
   useEffect(() => {
     document.title = showIntroduction ? "Welcome to FitRank" : `FitRank · ${page === "log-workout" ? "Log Workout" : page[0].toUpperCase() + page.slice(1)}`;
-    main.current?.focus();
+    main.current?.focus({ preventScroll: true });
     window.scrollTo(0, 0);
   }, [page, showIntroduction]);
   return <div className="fitrank-app">
