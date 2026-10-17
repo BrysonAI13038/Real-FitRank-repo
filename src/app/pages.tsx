@@ -3,6 +3,7 @@ import Introduction from "./Introduction";
 import type { SavedData } from "../workout/storage";
 import { latestComparisons, summarize } from "./data";
 import { weekStatus } from "../workout/scoring";
+import Goals from "./Goals";
 import { exerciseName, PageHeading, RankCard, WorkoutList } from "./components";
 
 const logAction = <a href="#/log-workout" className="app-button">+ Log Workout</a>;
@@ -22,7 +23,7 @@ export function Home({ data }: { data: SavedData }) {
 export function Workouts({ data }: { data: SavedData }) {
   return <><PageHeading title="Workouts" subtitle="Every session, in one place." action={logAction} /><WorkoutList workouts={data.workouts} details /></>;
 }
-export function Progress({ data }: { data: SavedData }) {
+export function Progress({ data, onChange }: { data: SavedData; onChange?: () => void }) {
   const comparisons = latestComparisons(data.workouts);
   return <><PageHeading title="Progress" subtitle="Built one session at a time." /><div className="app-dashboard"><RankCard elo={data.elo} /><div className="app-stack">
     <section className="app-card"><h2>Latest performance</h2><p>Heaviest set in your latest workout, compared with the previous session for that exercise.</p>
@@ -32,6 +33,7 @@ export function Progress({ data }: { data: SavedData }) {
         {item.previous && <p className={item.current.weightLbs >= item.previous.weightLbs && item.current.reps >= item.previous.reps && (item.current.weightLbs > item.previous.weightLbs || item.current.reps > item.previous.reps) ? "app-accent" : ""}>{item.current.weightLbs >= item.previous.weightLbs && item.current.reps >= item.previous.reps && (item.current.weightLbs > item.previous.weightLbs || item.current.reps > item.previous.reps) ? "More weight or reps than last time." : "Another session recorded. Keep building."}</p>}
       </div>)}
     </section>
+    <Goals data={data} onChange={onChange} />
     <section><h2 className="app-section-title">Recent ELO progress</h2><WorkoutList workouts={data.workouts.slice(-3)} /></section>
   </div></div></>;
 }

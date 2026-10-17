@@ -44,7 +44,7 @@ export default function App() {
       {page === "food" ? <Food /> : page === "settings" ? <Settings data={data} /> : page === "log-workout" ? <div className="app-logger"><WorkoutLogger onSaved={refresh} onBack={() => { refresh(); window.location.hash = "/home"; }} /></div> : data ? <>
         {page === "home" && <Home data={data} />}
         {page === "workouts" && <Workouts data={data} />}
-        {page === "progress" && <Progress data={data} />}
+        {page === "progress" && <Progress data={data} onChange={refresh} />}
       </> : !error && <p role="status">Loading your workouts…</p>}
       </>}
     </main>

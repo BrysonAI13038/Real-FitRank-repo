@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import "../instrument-atmosphere.css";
 import WorkoutInput from "./WorkoutInput";
 import WorkoutReward from "./WorkoutReward";
-import { saveWorkout, type Reward } from "./storage";
+import { saveWorkout, withSaveLock, type Reward } from "./storage";
 import { clearDraft } from "./draft";
 import type { Workout } from "./model";
 
@@ -18,8 +18,7 @@ export default function WorkoutLogger({ onBack, onSaved }: { onBack: () => void;
     try {
       submissionId.current ??= crypto.randomUUID();
       const commit = () => saveWorkout(exercises, submissionId.current!);
-      // Serialize read/modify/write across tabs where Web Locks is supported.
-      const saved = navigator.locks ? await navigator.locks.request("fitrank-workout-save", commit) : commit();
+      const saved = await withSaveLock(commit);
       clearDraft();
       setReward(saved);
       onSaved?.();

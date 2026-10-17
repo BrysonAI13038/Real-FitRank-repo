@@ -7,6 +7,8 @@ export type Goal = {
   baseline: number; reward: number; createdAt: string; achievedAt?: string; achievedWorkoutId?: string;
 };
 export type GoalInput = { exerciseId: string; kind: GoalKind; target: number; atWeightLbs?: number };
+// Thrown by addGoal for rule violations; the message is safe to show to the user.
+export class GoalError extends Error {}
 export type GoalCheck = { ok: true; baseline: number; reward: number } | { ok: false; error: string };
 
 // PROTOTYPE GOAL RULES: tunable. A goal must stretch at least minStretch past your current best.
@@ -69,6 +71,11 @@ export function validateGoal(input: GoalInput, history: Past, goals: Goal[]): Go
   const min = Math.max(baseline + 1, Math.ceil(baseline * (1 + GOAL_RULES.minStretch) - EPSILON));
   if (input.target < min) return fail(`Aim for at least ${min} reps. Your best at ${at} lbs is ${baseline}.`);
   return { ok: true, baseline, reward: goalReward(baseline, input.target) };
+}
+
+export function goalLabel(goal: Goal): string {
+  const name = exercises.find(item => item.id === goal.exerciseId)?.name ?? goal.exerciseId;
+  return goal.kind === "weight" ? `${name}: ${goal.target} lbs` : `${name}: ${goal.target} reps${goal.atWeightLbs ? ` at ${goal.atWeightLbs}+ lbs` : ""}`;
 }
 
 export function isGoalMet(goal: Goal, session: Workout[]): boolean {

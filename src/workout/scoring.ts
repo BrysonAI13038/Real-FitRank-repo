@@ -1,4 +1,5 @@
 import { exercises, MAX_EXERCISES, processWorkout, type Workout } from "./model";
+import { goalLabel, isGoalMet, type Goal } from "./goals";
 
 // Higher ranks earn ELO more slowly: session, weekly, streak and milestone ELO are
 // scaled by the multiplier of the rank held before the session.
@@ -18,17 +19,19 @@ export function rankProgress(elo: number) {
 }
 export type Breakdown = { label: string; amount: number }[];
 export type ScoredWorkout = { exercises: Workout[]; completedAt: string };
-export type ScoreResult = { earned: number; breakdown: Breakdown };
+export type ScoreResult = { earned: number; breakdown: Breakdown; achievedGoalIds: string[] };
 
 // PROTOTYPE SCORING SYSTEM: tunable, fixed amounts (never proportional to load).
 // session: first session of a calendar day only (extra sessions that day earn no session ELO).
 // weekly: on the session that reaches weeklyDays distinct training days in a Mon-Sun week,
 //   plus streakPerWeek for each consecutive earlier week that hit the target (max streakMaxWeeks).
+// effort: effort ELO per exercise with at least effortMinSets sets, at most effortCap exercises
+//   per calendar day. An exercise already credited earlier that day earns nothing again.
 // milestone: per exercise, for each milestoneLbs boundary the heaviest set crosses above its
 //   all-time best (max milestoneCap per exercise per session). First sessions and
 //   bodyweight-only history set a baseline, not a milestone.
-// Goal rewards are added separately and are not rank-scaled.
-export const SCORING = { session: 10, weekly: 15, weeklyDays: 3, streakPerWeek: 5, streakMaxWeeks: 5, milestoneLbs: 20, milestone: 5, milestoneCap: 3 };
+// Goal rewards (set when the goal was created) are added on top and are not rank-scaled.
+export const SCORING = { session: 10, weekly: 15, weeklyDays: 3, streakPerWeek: 5, streakMaxWeeks: 5, effort: 3, effortMinSets: 3, effortCap: 5, milestoneLbs: 20, milestone: 5, milestoneCap: 3 };
 
 const dayKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 // Local-time Monday 00:00 of the week containing `date`.
@@ -64,7 +67,7 @@ export function weekStatus(history: { completedAt: string }[], now = new Date())
 
 const heaviest = (sets: Workout["sets"]) => sets.reduce((best, set) => Math.max(best, set.weightLbs), 0);
 
-export function scoreWorkout(current: Workout[], history: ScoredWorkout[], elo: number, now = new Date()): ScoreResult {
+export function scoreWorkout(current: Workout[], history: ScoredWorkout[], elo: number, now = new Date(), goals: Goal[] = []): ScoreResult {
   if (!current.length || current.length > MAX_EXERCISES || new Set(current.map(ex => ex.exerciseId)).size !== current.length) throw new Error("Choose distinct exercises with at least one set.");
   for (const exercise of current) {
     if (!processWorkout(exercise.exerciseId, exercise.sets.map(set => ({ weight: String(set.weightLbs), reps: String(set.reps) }))).ok) throw new Error("Check your workout values before submitting.");
@@ -83,6 +86,10 @@ export function scoreWorkout(current: Workout[], history: ScoredWorkout[], elo: 
       if (status.streak > 0) add(`Streak: ${status.streak} ${status.streak === 1 ? "week" : "weeks"} in a row`, SCORING.streakPerWeek * status.streak);
     }
   }
+  const solid = (exercise: Workout) => exercise.sets.length >= SCORING.effortMinSets;
+  const creditedToday = new Set(history.filter(workout => dayKey(new Date(workout.completedAt)) === dayKey(now)).flatMap(workout => workout.exercises).filter(solid).map(exercise => exercise.exerciseId));
+  const effort = Math.min(current.filter(exercise => solid(exercise) && !creditedToday.has(exercise.exerciseId)).length, Math.max(0, SCORING.effortCap - creditedToday.size));
+  if (effort > 0) add(`Effort: ${effort} ${effort === 1 ? "exercise" : "exercises"} with ${SCORING.effortMinSets}+ sets`, SCORING.effort * effort);
   for (const exercise of current) {
     const past = history.flatMap(workout => workout.exercises).filter(ex => ex.exerciseId === exercise.exerciseId);
     const before = past.reduce((best, ex) => Math.max(best, heaviest(ex.sets)), 0);
@@ -90,5 +97,7 @@ export function scoreWorkout(current: Workout[], history: ScoredWorkout[], elo: 
     const crossed = Math.min(SCORING.milestoneCap, Math.floor(heaviest(exercise.sets) / SCORING.milestoneLbs) - Math.floor(before / SCORING.milestoneLbs));
     if (crossed > 0) add(`${exercises.find(item => item.id === exercise.exerciseId)?.name ?? exercise.exerciseId}: ${crossed} × ${SCORING.milestoneLbs} lb ${crossed === 1 ? "milestone" : "milestones"}`, SCORING.milestone * crossed);
   }
-  return { earned: breakdown.reduce((sum, line) => sum + line.amount, 0), breakdown };
+  const achieved = goals.filter(goal => !goal.achievedAt && isGoalMet(goal, current));
+  for (const goal of achieved) breakdown.push({ label: `Goal achieved: ${goalLabel(goal)}`, amount: goal.reward });
+  return { earned: breakdown.reduce((sum, line) => sum + line.amount, 0), breakdown, achievedGoalIds: achieved.map(goal => goal.id) };
 }

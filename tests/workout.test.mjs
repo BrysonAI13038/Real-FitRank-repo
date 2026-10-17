@@ -16,7 +16,7 @@ function load(name) {
 }
 const { scoreWorkout, rankProgress, rankMultiplier, weekStatus, RANKS } = load('scoring');
 const { saveWorkout, loadData, addGoal, deleteGoal } = load('storage');
-const { validateGoal, goalReward, currentBest, isGoalMet } = load('goals');
+const { validateGoal, goalReward, currentBest, isGoalMet, GoalError } = load('goals');
 const { processWorkout, processSession } = load('model');
 const { exercises, searchExercises, MUSCLE_GROUPS } = load('exercises');
 const { loadDraft, saveDraft, clearDraft } = load('draft');
@@ -58,7 +58,7 @@ test('20 lb milestones: per boundary above the all-time best, capped, baseline-f
   assert.equal(score([exercise(120), exercise(80, 8, 'row')], hist([exercise(100), at(1)], [exercise(60, 8, 'row'), at(1)])).earned, 20);
   assert.equal(score([exercise(120)], hist([exercise(100), at(1)], [exercise(150), at(1)])).earned, 10);
   const manySets = { exerciseId: 'bench-press', sets: [{ weightLbs: 120, reps: 5 }, { weightLbs: 80, reps: 12 }, { weightLbs: 80, reps: 12 }] };
-  assert.equal(score([manySets], before(100)).earned, 15);
+  assert.equal(score([manySets], before(100)).earned, 18);
 });
 test('weekly target: reached on the 3rd distinct day of a Mon-Sun week, once', () => {
   const day = d => [exercise(), at(d)];
@@ -372,4 +372,81 @@ test('isGoalMet: weight and reps goals', () => {
   assert.equal(isGoalMet(reps, [exercise(95, 12)]), false);
   assert.equal(isGoalMet(reps, [{ exerciseId: 'bench-press', sets: [{ weightLbs: 100, reps: 8 }, { weightLbs: 120, reps: 10 }] }]), true);
   assert.equal(isGoalMet(reps, [{ exerciseId: 'bench-press', sets: [{ weightLbs: 100, reps: 9 }, { weightLbs: 120, reps: 5 }] }]), false);
+});
+
+const aGoal = (overrides = {}) => ({ id: 'g1', exerciseId: 'bench-press', kind: 'weight', target: 110, baseline: 100, reward: 80, createdAt: at(1).toISOString(), ...overrides });
+test('scoring: goal rewards are added once per met goal and are not rank-scaled', () => {
+  const run = (goals, current = [exercise(110)], elo = 0) => scoreWorkout(current, hist([exercise(100), at(1)]), elo, at(2), goals);
+  const met = run([aGoal()]);
+  assert.equal(met.earned, 10 + 80); assert.deepEqual(plain(met.achievedGoalIds), ['g1']);
+  assert.deepEqual(lines(met)[1], { label: 'Goal achieved: Bench Press: 110 lbs', amount: 80 });
+  assert.equal(run([aGoal()], [exercise(110)], 7500).earned, 5 + 80);
+  assert.equal(run([aGoal()], [exercise(109)]).earned, 10);
+  assert.deepEqual(plain(run([aGoal()], [exercise(109)]).achievedGoalIds), []);
+  assert.equal(run([aGoal({ achievedAt: at(1).toISOString() })]).earned, 10);
+  assert.equal(run([aGoal()], [exercise(300, 8, 'squat')]).earned, 10);
+  const two = run([aGoal(), aGoal({ id: 'g2', kind: 'reps', target: 10, atWeightLbs: 100, reward: 60 })], [exercise(110, 10)]);
+  assert.equal(two.earned, 10 + 80 + 60); assert.deepEqual(plain(two.achievedGoalIds), ['g1', 'g2']);
+  assert.match(lines(two)[2].label, /Bench Press: 10 reps at 100\+ lbs/);
+});
+test('saving a workout completes goals atomically, once, and keeps elo = sum of earned', () => {
+  const storage = store();
+  saveWorkout([exercise(100)], 'one', storage, at(2));
+  const goal = addGoal(goalInput({ target: 110 }), 'g1', storage, at(2));
+  addGoal({ exerciseId: 'bench-press', kind: 'reps', target: 10, atWeightLbs: 100 }, 'g2', storage, at(2));
+  const miss = saveWorkout([exercise(105)], 'two', storage, at(3));
+  assert.equal(miss.earned, 10); assert.equal(miss.goalsAchieved.length, 0);
+  assert.equal(loadData(storage).goals.filter(g => g.achievedAt).length, 0);
+  const hit = saveWorkout([exercise(110, 4)], 'three', storage, at(4));
+  assert.equal(goal.reward, 75); assert.equal(hit.earned, 10 + 15 + goal.reward);
+  assert.deepEqual(plain(hit.goalsAchieved.map(g => g.id)), ['g1']);
+  const after = loadData(storage);
+  const done = after.goals.find(g => g.id === 'g1');
+  assert.equal(done.achievedAt, at(4).toISOString()); assert.equal(done.achievedWorkoutId, 'three');
+  assert.equal(after.goals.find(g => g.id === 'g2').achievedAt, undefined);
+  assert.equal(after.elo, after.workouts.reduce((sum, w) => sum + w.earned, 0));
+  assert.ok(after.workouts[2].breakdown.some(line => /Goal achieved/.test(line.label)));
+  // Re-submitting the same workout id pays nothing more and still reports the goal.
+  const again = saveWorkout([exercise(110, 4)], 'three', storage, at(9));
+  assert.equal(again.after, hit.after); assert.deepEqual(plain(again.goalsAchieved.map(g => g.id)), ['g1']);
+  // Matching the target again later does not pay an achieved goal a second time.
+  assert.equal(saveWorkout([exercise(110)], 'four', storage, at(5)).earned, 10);
+  assert.equal(loadData(storage).goals.find(g => g.id === 'g1').achievedWorkoutId, 'three');
+  // Removing is no longer possible once achieved; the reward stays in history.
+  deleteGoal('g1', storage);
+  assert.equal(loadData(storage).goals.length, 2);
+});
+test('a failed write neither completes goals nor awards their reward', () => {
+  const storage = store();
+  saveWorkout([exercise(100)], 'one', storage, at(2));
+  addGoal(goalInput({ target: 110 }), 'g1', storage, at(2));
+  assert.throws(() => saveWorkout([exercise(115)], 'two', { getItem: storage.getItem, setItem: () => { throw new Error('Quota'); } }, at(3)));
+  assert.equal(loadData(storage).goals[0].achievedAt, undefined);
+  assert.equal(loadData(storage).elo, 10);
+});
+test('addGoal rule violations throw GoalError', () => {
+  const storage = store();
+  saveWorkout([exercise(100)], 'one', storage, at(2));
+  assert.throws(() => addGoal(goalInput({ target: 101 }), 'g1', storage), error => error.constructor.name === 'GoalError' && /at least 105/.test(error.message));
+  assert.equal(loadData(storage).goals.length, 0);
+});
+
+const setsOf = (count, exerciseId = 'bench-press', weight = 50) => ({ exerciseId, sets: Array.from({ length: count }, () => ({ weightLbs: weight, reps: 8 })) });
+const five = ['bench-press', 'squat', 'deadlift', 'row', 'overhead-press'];
+test('effort bonus: +3 per exercise with 3+ sets, 5 per day, no repeat credit, rank-scaled', () => {
+  assert.equal(score([setsOf(3)]).earned, 13);
+  assert.deepEqual(lines(score([setsOf(3)]))[1], { label: 'Effort: 1 exercise with 3+ sets', amount: 3 });
+  assert.equal(score([setsOf(2)]).earned, 10);
+  assert.equal(score([setsOf(3), setsOf(2, 'row'), setsOf(4, 'squat')]).earned, 16);
+  assert.equal(score(five.map(id => setsOf(3, id))).earned, 10 + 15);
+  assert.equal(score([...five, 'biceps-curl'].map(id => setsOf(3, id))).earned, 10 + 15);
+  // Splitting a day: new exercises still earn until 5 are credited, repeats earn nothing.
+  const morning = hist([setsOf(3, 'bench-press'), at(2, 7)], [setsOf(3, 'squat'), at(2, 8)]);
+  assert.equal(score([setsOf(3, 'bench-press'), setsOf(3, 'squat')], morning).earned, 0);
+  assert.equal(score([setsOf(3, 'bench-press'), setsOf(3, 'deadlift')], morning).earned, 3);
+  assert.equal(score(['deadlift', 'row', 'overhead-press', 'biceps-curl'].map(id => setsOf(3, id)), morning).earned, 9);
+  // A new day starts a fresh allowance.
+  assert.equal(score([setsOf(3)], morning, 0, at(3)).earned, 13);
+  assert.equal(score([setsOf(3), setsOf(3, 'row')], [], 7500).earned, 5 + 3);
+  assert.equal(score([setsOf(3)], [], 300).earned, 9 + 3);
 });

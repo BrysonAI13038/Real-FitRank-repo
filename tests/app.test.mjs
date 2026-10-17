@@ -22,9 +22,9 @@ function load(file) {
 }
 const { summarize, latestComparisons } = load('src/app/data.ts');
 const { Home, Workouts, Progress, Food, Settings } = load('src/app/pages.tsx');
-const empty = {version:1,workouts:[],elo:0};
+const empty = {version:3,workouts:[],goals:[],elo:0};
 const workout = (id,date,weight,earned) => ({id,completedAt:date,earned,exercises:[{exerciseId:'bench-press',sets:[{weightLbs:weight,reps:8}]}]});
-const data = {version:1,elo:36,workouts:[workout('one','2026-09-14T12:00:00',100,12),workout('two','2026-09-18T12:00:00',105,24)]};
+const data = {version:3,elo:36,goals:[],workouts:[workout('one','2026-09-14T12:00:00',100,12),workout('two','2026-09-18T12:00:00',105,24)]};
 const render = (component,props) => renderToStaticMarkup(React.createElement(component,props));
 test('fresh browser renders honest empty home, history and progress',()=>{
   assert.match(render(Home,{data:empty}),/Bronze/);
@@ -80,11 +80,27 @@ test('home and progress include collapsed, native keyboard-accessible ELO help',
   assert.match(render(Home,{data}),/Log a workout, earn ELO/);
 });
 test('history renders a multi-exercise session with library names',()=>{
-  const multi={version:2,elo:16,quarantine:[],workouts:[{id:'m',completedAt:'2026-09-20T12:00:00',earned:16,exercises:[
+  const multi={version:3,elo:16,quarantine:[],goals:[],workouts:[{id:'m',completedAt:'2026-09-20T12:00:00',earned:16,exercises:[
     {exerciseId:'bench-press',sets:[{weightLbs:100,reps:8}]},
     {exerciseId:'lat-pulldown',sets:[{weightLbs:120,reps:10},{weightLbs:130,reps:8}]}]}]};
   const html=render(Workouts,{data:multi});
   assert.match(html,/Bench Press/);
   assert.match(html,/Lat Pulldown/);
   assert.match(html,/130.*lbs/);
+});
+test('goals card: empty state, set-a-goal entry, active and achieved goals, cap',()=>{
+  assert.match(render(Progress,{data:empty}),/Log a workout first, then you can set a goal/);
+  assert.doesNotMatch(render(Progress,{data:empty}),/Set a goal/);
+  assert.match(render(Progress,{data}),/\+ Set a goal/);
+  const goal=(id,exerciseId,extra={})=>({id,exerciseId,kind:'weight',target:120,baseline:105,reward:75,createdAt:'2026-09-19T12:00:00',...extra});
+  const withGoals=goals=>({...data,goals});
+  const html=render(Progress,{data:withGoals([goal('a','bench-press'),goal('b','squat',{achievedAt:'2026-09-20T12:00:00',achievedWorkoutId:'two'})])});
+  assert.match(html,/Remove goal Bench Press: 120 lbs/);
+  assert.match(html,/\+75 ELO/);
+  assert.match(html,/Now: 105 lbs · started at 105/);
+  assert.match(html,/Achieved/);
+  assert.match(html,/Squat: 120 lbs/);
+  const full=render(Progress,{data:withGoals([goal('a','bench-press'),goal('b','row'),goal('c','squat')])});
+  assert.match(full,/You have 3 active goals/);
+  assert.doesNotMatch(full,/\+ Set a goal/);
 });

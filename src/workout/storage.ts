@@ -1,6 +1,6 @@
 import type { Workout } from "./model";
 import { scoreWorkout, type Breakdown } from "./scoring";
-import { isGoal, validateGoal, type Goal, type GoalInput } from "./goals";
+import { GoalError, isGoal, validateGoal, type Goal, type GoalInput } from "./goals";
 
 const V1_KEY = "fitrank.workouts.v1";
 const V2_KEY = "fitrank.data.v2";
@@ -10,7 +10,7 @@ export type SavedWorkout = { id: string; completedAt: string; exercises: Workout
 // elo is always derived from workouts. quarantine keeps raw entries (workouts or
 // goals) that failed validation so they are never deleted.
 export type SavedData = { version: 3; workouts: SavedWorkout[]; goals: Goal[]; elo: number; quarantine: unknown[] };
-export type Reward = { workoutCount: number; before: number; after: number; earned: number; workout: SavedWorkout };
+export type Reward = { workoutCount: number; before: number; after: number; earned: number; workout: SavedWorkout; goalsAchieved: Goal[] };
 
 const UNREADABLE = "Saved workout data could not be read. Nothing was overwritten.";
 const isRecord = (value: unknown): value is Record<string, any> => typeof value === "object" && value !== null && !Array.isArray(value);
@@ -85,14 +85,16 @@ export function saveWorkout(exercises: Workout[], id: string, storage: Pick<Stor
   if (existingIndex >= 0) {
     const workout = data.workouts[existingIndex];
     const before = data.workouts.slice(0, existingIndex).reduce((sum, item) => sum + item.earned, 0);
-    return { workoutCount: existingIndex + 1, workout, before, after: before + workout.earned, earned: workout.earned };
+    return { workoutCount: existingIndex + 1, workout, before, after: before + workout.earned, earned: workout.earned, goalsAchieved: data.goals.filter(goal => goal.achievedWorkoutId === id) };
   }
-  const { earned, breakdown } = scoreWorkout(exercises, data.workouts, data.elo, now);
+  const { earned, breakdown, achievedGoalIds } = scoreWorkout(exercises, data.workouts, data.elo, now, data.goals);
   const after = data.elo + earned;
   if (!Number.isSafeInteger(after)) throw new Error("ELO total is outside the supported range.");
   const workout: SavedWorkout = { id, completedAt: now.toISOString(), exercises, earned, breakdown };
-  storage.setItem(KEY, JSON.stringify({ ...data, workouts: [...data.workouts, workout], elo: after } satisfies SavedData));
-  return { workoutCount: data.workouts.length + 1, workout, before: data.elo, after, earned };
+  // The workout and the goals it completes are written together, so a reward is never paid twice.
+  const goals = data.goals.map(goal => achievedGoalIds.includes(goal.id) ? { ...goal, achievedAt: workout.completedAt, achievedWorkoutId: id } : goal);
+  storage.setItem(KEY, JSON.stringify({ ...data, workouts: [...data.workouts, workout], goals, elo: after } satisfies SavedData));
+  return { workoutCount: data.workouts.length + 1, workout, before: data.elo, after, earned, goalsAchieved: goals.filter(goal => goal.achievedWorkoutId === id) };
 }
 
 // Throws the validation message (see validateGoal) when the goal is not allowed.
@@ -101,7 +103,7 @@ export function addGoal(input: GoalInput, id: string, storage: Pick<Storage, "ge
   const existing = data.goals.find(goal => goal.id === id);
   if (existing) return existing;
   const checked = validateGoal(input, data.workouts, data.goals);
-  if (!checked.ok) throw new Error(checked.error);
+  if (!checked.ok) throw new GoalError(checked.error);
   const goal: Goal = { id, exerciseId: input.exerciseId, kind: input.kind, target: input.target,
     ...(input.kind === "reps" ? { atWeightLbs: input.atWeightLbs } : {}), baseline: checked.baseline, reward: checked.reward, createdAt: now.toISOString() };
   storage.setItem(KEY, JSON.stringify({ ...data, goals: [...data.goals, goal] } satisfies SavedData));
@@ -112,4 +114,9 @@ export function deleteGoal(id: string, storage: Pick<Storage, "getItem" | "setIt
   const data = loadData(storage);
   if (!data.goals.some(goal => goal.id === id && !goal.achievedAt)) return;
   storage.setItem(KEY, JSON.stringify({ ...data, goals: data.goals.filter(goal => goal.id !== id) } satisfies SavedData));
+}
+
+// Serializes read/modify/write across tabs where Web Locks is supported.
+export async function withSaveLock<T>(commit: () => T): Promise<T> {
+  return navigator.locks ? await navigator.locks.request("fitrank-workout-save", commit) : commit();
 }

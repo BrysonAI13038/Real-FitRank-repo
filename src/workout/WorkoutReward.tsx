@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { goalLabel } from "./goals";
 import { rankProgress } from "./scoring";
 import type { Reward } from "./storage";
 import "./workout-success.css";
@@ -45,6 +46,7 @@ export default function WorkoutReward({ reward, onBack }: { reward: Reward; onBa
       <div className="mt-3 flex justify-between gap-2 text-[11px] leading-relaxed text-[#b7b7c0]"><span>{reward.after.toLocaleString()} ELO</span><span>{final.next ? `${final.remaining.toLocaleString()} to ${final.next}` : "Elite achieved"}</span></div>
       <p role="status" className="sr-only">Workout saved. Earned {reward.earned} ELO. Current rank: {final.rank}.</p>
     </div>
+    {reward.goalsAchieved.map(goal => <div key={goal.id} role="status" className="mb-4 rounded-[2px] border border-[#f59e0b] bg-[#f59e0b]/10 px-4 py-3 text-xs"><p className="font-semibold uppercase tracking-widest text-[#f59e0b]">Goal achieved</p><p className="mt-1 text-[#f4f4f5]">{goalLabel(goal)} · +{goal.reward} ELO</p></div>)}
     {reward.workout.breakdown?.length
       ? <ul aria-label="How this session earned ELO" className="mb-6 space-y-2 text-xs text-[#b7b7c0]">{reward.workout.breakdown.map(line => <li key={line.label} className="flex justify-between gap-3"><span>{line.label}</span><span className="font-semibold text-[#f59e0b]">+{line.amount}</span></li>)}</ul>
       : reward.earned === 0 && <p className="mb-6 text-xs leading-relaxed text-[#b7b7c0]">No ELO this time. You already earned today's session ELO. Your workout is saved, and nothing is lost.</p>}

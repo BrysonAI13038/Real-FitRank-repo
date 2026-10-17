@@ -65,6 +65,21 @@
 .app-error { margin-bottom:24px; }
 .app-skip { position:fixed; top:-100px; left:16px; padding:12px; background:#f59e0b; color:#000; z-index:30; }
 .app-skip:focus { top:12px; }
+.app-goals>p { margin-top:12px; }
+.app-goals-list { list-style:none; padding:0; margin:16px 0 0; }
+.app-goal { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:14px 0; border-top:1px solid #26262b; }
+.app-goal h3 { font-size:18px; }
+.app-goal p { margin-top:4px; font-size:11px; }
+.app-goal-side { display:flex; align-items:center; gap:12px; }
+.app-goal-reward { color:#f59e0b; font-weight:600; white-space:nowrap; }
+.app-goals-subhead { margin-top:24px; }
+.app-small { padding:6px 12px; font-size:11px; }
+.app-goals>.app-button { margin-top:20px; }
+.app-form { display:grid; gap:14px; margin-top:20px; max-width:420px; }
+.app-form label { display:grid; gap:6px; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:#96969f; }
+.app-form select,.app-form input { padding:10px 12px; border:1px solid #3f3f46; border-radius:1px; background:#0c0c0e; color:#f4f4f5; font:inherit; font-size:14px; letter-spacing:normal; text-transform:none; }
+.app-form select:focus,.app-form input:focus { outline:none; border-color:#f59e0b; }
+.app-form-note { font-size:12px; min-height:1.6em; }
 @media(max-width:700px) {
  .app-header { height:64px; padding:0 20px; }
  .app-header>span { font-size:10px; }
@@ -76,6 +91,8 @@
  .app-page-heading h1 { font-size:28px; }
  .app-rank { padding:32px 24px 24px; }
  .app-card { padding:20px; }
+ .app-goal { flex-direction:column; align-items:flex-start; }
+ .app-goal-side { width:100%; justify-content:space-between; }
  .app-stats { padding:20px 4px; }
  .app-actions>* { flex:1; white-space:nowrap; }
  .app-logger { max-width:440px; }
