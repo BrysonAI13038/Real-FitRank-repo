@@ -79,3 +79,12 @@ test('home and progress include collapsed, native keyboard-accessible ELO help',
   }
   assert.match(render(Home,{data}),/Log a workout, earn ELO/);
 });
+test('history renders a multi-exercise session with library names',()=>{
+  const multi={version:2,elo:16,quarantine:[],workouts:[{id:'m',completedAt:'2026-09-20T12:00:00',earned:16,exercises:[
+    {exerciseId:'bench-press',sets:[{weightLbs:100,reps:8}]},
+    {exerciseId:'lat-pulldown',sets:[{weightLbs:120,reps:10},{weightLbs:130,reps:8}]}]}]};
+  const html=render(Workouts,{data:multi});
+  assert.match(html,/Bench Press/);
+  assert.match(html,/Lat Pulldown/);
+  assert.match(html,/130.*lbs/);
+});

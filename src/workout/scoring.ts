@@ -1,4 +1,4 @@
-import { processWorkout, type Workout } from "./model";
+import { MAX_EXERCISES, processWorkout, type Workout } from "./model";
 
 export const RANKS = [
   { name: "Bronze", min: 0 }, { name: "Silver", min: 300 },
@@ -27,7 +27,7 @@ const performance = (exercise: Workout, loaded: boolean) => Math.max(0, ...exerc
   .map(set => loaded ? set.weightLbs * (1 + set.reps / 30) : set.reps));
 
 export function scoreWorkout(current: Workout[], history: ScoredWorkout[]): number {
-  if (!current.length || current.length > 7 || new Set(current.map(ex => ex.exerciseId)).size !== current.length) throw new Error("Choose distinct exercises with at least one set.");
+  if (!current.length || current.length > MAX_EXERCISES || new Set(current.map(ex => ex.exerciseId)).size !== current.length) throw new Error("Choose distinct exercises with at least one set.");
   let earned = PROTOTYPE_SCORING.completion;
   for (const exercise of current) {
     const checked = processWorkout(exercise.exerciseId, exercise.sets.map(set => ({ weight: String(set.weightLbs), reps: String(set.reps) })));

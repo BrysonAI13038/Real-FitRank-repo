@@ -3,6 +3,7 @@ import "../instrument-atmosphere.css";
 import WorkoutInput from "./WorkoutInput";
 import WorkoutReward from "./WorkoutReward";
 import { saveWorkout, type Reward } from "./storage";
+import { clearDraft } from "./draft";
 import type { Workout } from "./model";
 
 export default function WorkoutLogger({ onBack, onSaved }: { onBack: () => void; onSaved?: () => void }) {
@@ -10,15 +11,16 @@ export default function WorkoutLogger({ onBack, onSaved }: { onBack: () => void;
   const [error, setError] = useState("");
   const submissionId = useRef<string | null>(null);
   const submitting = useRef(false);
-  async function submit(workout: Workout) {
+  async function submit(exercises: Workout[]) {
     if (submitting.current) return;
     submitting.current = true;
     setError("");
     try {
       submissionId.current ??= crypto.randomUUID();
-      const commit = () => saveWorkout([workout], submissionId.current!);
+      const commit = () => saveWorkout(exercises, submissionId.current!);
       // Serialize read/modify/write across tabs where Web Locks is supported.
       const saved = navigator.locks ? await navigator.locks.request("fitrank-workout-save", commit) : commit();
+      clearDraft();
       setReward(saved);
       onSaved?.();
     } catch (cause) {
