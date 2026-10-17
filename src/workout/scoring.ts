@@ -31,6 +31,9 @@ export type ScoreResult = { earned: number; breakdown: Breakdown; achievedGoalId
 //   all-time best (max milestoneCap per exercise per session). First sessions and
 //   bodyweight-only history set a baseline, not a milestone.
 // Goal rewards (set when the goal was created) are added on top and are not rank-scaled.
+// The cloud schema (supabase/schema.sql) caps a workout's earned ELO at 620: 170 from
+// these amounts at ×1.0 plus maxActive goals at their maximum reward (see GOAL_RULES).
+// If SCORING or GOAL_RULES change, update that cap; tests/cloud.test.mjs checks it.
 export const SCORING = { session: 10, weekly: 15, weeklyDays: 3, streakPerWeek: 5, streakMaxWeeks: 5, effort: 3, effortMinSets: 3, effortCap: 5, milestoneLbs: 20, milestone: 5, milestoneCap: 3 };
 
 export const dayKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;

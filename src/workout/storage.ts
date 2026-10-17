@@ -79,6 +79,10 @@ export function loadData(storage: Pick<Storage, "getItem"> = localStorage): Save
   if (!v1) return { version: 3, workouts: [], goals: [], elo: 0, quarantine: [] };
   return normalize(parse(v1, 1).workouts, [], []);
 }
+// Used by cloud sync to store a merged result. Callers hold the save lock.
+export function writeData(data: SavedData, storage: Pick<Storage, "setItem"> = localStorage): void {
+  storage.setItem(KEY, JSON.stringify(data));
+}
 export function saveWorkout(exercises: Workout[], id: string, storage: Pick<Storage, "getItem" | "setItem"> = localStorage, now = new Date()): Reward {
   const data = loadData(storage);
   const existingIndex = data.workouts.findIndex(workout => workout.id === id);
