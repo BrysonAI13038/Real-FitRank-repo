@@ -10,8 +10,8 @@
 
 ## Next
 
-1. **Housekeeping.** Mostly done: npm is the package manager (matches Netlify), `pnpm-lock.yaml` removed, `netlify.toml` added, `npm test` script added. Remaining: replace the stale Figma Make `AGENTS.md`.
-2. **Data model v2.** Versioned save under a new key (v1 left untouched as a backup), a tolerant `loadData` that quarantines bad entries instead of failing, and a v1 → v2 migration.
+1. **Housekeeping.** Done: npm is the package manager (matches Netlify), `pnpm-lock.yaml` removed, `netlify.toml` and `npm test` added, `AGENTS.md` replaced.
+2. **Data model v2.** Done: versioned save under a new key (v1 left untouched as a backup), a tolerant `loadData` that quarantines bad entries instead of failing, and a v1 → v2 migration.
 3. **Exercise library and workout logger.** A larger searchable exercise library with muscle-group tags, and a multi-exercise logger with per-set weight and reps.
 4. **ELO redesign.** Only when explicitly requested. No ELO loss for missed workouts.
 5. **Food logging, or hide the button.** If built: optional, minor, small bonuses for consistency, protein sources and food variety, never punishing foods. Otherwise remove or label the entry point "Coming soon".
