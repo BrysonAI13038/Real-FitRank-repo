@@ -176,4 +176,5 @@
 .app-privacy>p { margin-top:12px; }
 .app-privacy>.app-button { margin-top:28px; }
 .app-about>a.app-button { margin:20px 0 0 12px; }
+.app-privacy a:not(.app-button) { color:inherit; text-decoration:underline; }
 .app-signin-note a { color:inherit; text-decoration:underline; }

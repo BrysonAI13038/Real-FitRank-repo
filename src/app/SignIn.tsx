@@ -5,7 +5,7 @@ import {
   savePending, secondsUntilResend, sendErrorMessage, verifyErrorMessage, EXPIRED_MESSAGE, type Pending,
 } from "../cloud/otp";
 import { signInMethods } from "../cloud/signInMethods";
-import { PRIVACY_HREF } from "./privacyLink";
+import { PRIVACY_HREF, TERMS_HREF } from "./legalLinks";
 
 // Which methods appear is decided at build time (VITE_GOOGLE_SIGNIN / VITE_EMAIL_SIGNIN).
 // Google is the default. The email-code flow (type your email, then the 6-digit code we send)
@@ -100,6 +100,6 @@ export default function SignIn({ error, unconfigured }: { error?: string; unconf
       </form>)}
     </>}
     {message && message !== EXPIRED_MESSAGE && <p role="alert">{message}</p>}
-    <p className="app-signin-note">FitRank uses only your email address to sign you in. Nothing is posted anywhere. <a href={PRIVACY_HREF}>Privacy</a></p>
+    <p className="app-signin-note">FitRank uses only your email address to sign you in. Nothing is posted anywhere. <a href={PRIVACY_HREF}>Privacy</a> · <a href={TERMS_HREF}>Terms</a></p>
   </section>;
 }

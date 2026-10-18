@@ -174,7 +174,7 @@ test('history explains a missing session bonus, and only then',()=>{
 });
 
 const { default: Privacy } = load('src/app/Privacy.tsx');
-const { PRIVACY_HREF } = load('src/app/privacyLink.ts');
+const { PRIVACY_HREF, TERMS_HREF } = load('src/app/legalLinks.ts');
 test('privacy page says what is stored and where, and how to export or delete; no placeholders',()=>{
   const page = renderToStaticMarkup(React.createElement(Privacy,{signedIn:true}));
   for (const phrase of [/Your email address/,/workouts/,/Supabase/,/Netlify/,/Google/,/No ads/,/No analytics/,/No tracking cookies/,/Export my data/,/Delete account/,/before accounts existed/,/Last updated/]) assert.match(page,phrase);
@@ -187,5 +187,20 @@ test('privacy page works signed out and its back link goes to the right place',(
 });
 test('settings links to the privacy page',()=>{
   assert.equal(PRIVACY_HREF,'#/privacy');
+  assert.match(render(Settings,{data}),/href="#\/privacy"[^>]*>Privacy/);
+});
+
+const { default: Terms } = load('src/app/Terms.tsx');
+test('terms page: plain-language, no medical claims, points to privacy, works signed out, no placeholders',()=>{
+  const page = renderToStaticMarkup(React.createElement(Terms,{signedIn:false}));
+  for (const phrase of [/Terms of service/,/Last updated/,/not a measure of your health/,/does not give medical/,/as is/,/export your data or delete your account/i,/href="#\/privacy"/]) assert.match(page,phrase);
+  assert.match(page,/href="#\/home"[^>]*>Back to sign in/);
+  assert.match(renderToStaticMarkup(React.createElement(Terms,{signedIn:true})),/href="#\/settings"[^>]*>Back to Settings/);
+  assert.doesNotMatch(page,/coming soon|todo|lorem|[\w.]+@[\w-]+\.\w+/i);
+});
+test('terms and privacy link to each other, and settings links to terms',()=>{
+  assert.equal(TERMS_HREF,'#/terms');
+  assert.match(renderToStaticMarkup(React.createElement(Privacy,{signedIn:true})),/href="#\/terms"/);
+  assert.match(render(Settings,{data}),/href="#\/terms"[^>]*>Terms/);
   assert.match(render(Settings,{data}),/href="#\/privacy"[^>]*>Privacy/);
 });
