@@ -59,7 +59,7 @@ export default function App() {
   }, [page, showIntroduction, signedIn]);
   return <div className="fitrank-app">
     <a href="#main-content" className="app-skip" onClick={event => { event.preventDefault(); main.current?.focus(); }}>Skip to content</a>
-    <header className="app-header"><a className="app-wordmark" href="#/home">FITRANK</a><span>Your work. Your progress.</span></header>
+    <header className="app-header"><a className="app-wordmark" href="#/home"><img className="app-logo" src="/icons/logo-mark.png" alt="" width="27" height="32" />FITRANK</a><span>Your work. Your progress.</span></header>
     {!showIntroduction && signedIn && <nav className="app-nav" aria-label="Main navigation">{navigation.map(label => {
       const target = label.toLowerCase(); const active = page === target || (target === "workouts" && page === "log-workout");
       return <a key={label} href={`#/${target}`} aria-current={active ? "page" : undefined}>{label}{target === "food" && <small className="app-nav-soon"> Soon</small>}</a>;

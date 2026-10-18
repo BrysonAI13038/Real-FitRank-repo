@@ -1,8 +1,8 @@
 // Basic offline shell. Pages are network-first (updates arrive on the next open) and
 // fall back to the cached page offline. Hashed /assets/* and fonts are cache-first.
 // Workout data lives in localStorage, so it is never touched here.
-const CACHE = "fitrank-shell-v1";
-const SHELL = ["/", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png", "/icons/apple-touch-icon.png", "/icons/favicon-32.png",
+const CACHE = "fitrank-shell-v2";
+const SHELL = ["/", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png", "/icons/apple-touch-icon.png", "/icons/favicon-32.png", "/icons/logo-mark.png",
   "/fonts/barlow-condensed-500.woff2", "/fonts/barlow-condensed-600.woff2", "/fonts/barlow-condensed-700.woff2", "/fonts/inter-latin.woff2"];
 
 self.addEventListener("install", event => {

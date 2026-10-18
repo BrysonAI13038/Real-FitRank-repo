@@ -6,7 +6,8 @@
 .fitrank-app h3 { font-size:20px; font-weight:600; }
 .fitrank-app p { color:#b7b7c0; }
 .app-header { height:calc(80px + env(safe-area-inset-top)); max-width:1120px; margin:auto; padding:env(safe-area-inset-top) max(32px,env(safe-area-inset-right)) 0 max(32px,env(safe-area-inset-left)); display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid #26262b; }
-.app-wordmark { font-size:26px; font-weight:700; letter-spacing:.08em; text-decoration:none; }
+.app-wordmark { display:inline-flex; align-items:center; gap:10px; font-size:26px; font-weight:700; letter-spacing:.08em; text-decoration:none; }
+.app-logo { display:block; width:auto; height:32px; }
 .app-header>span { font-size:11px; color:#96969f; }
 .app-nav { display:flex; gap:8px; max-width:1120px; margin:auto; padding:16px 32px; border-bottom:1px solid #26262b; }
 .app-nav a { padding:8px 16px; color:#b7b7c0; border-bottom:2px solid transparent; text-decoration:none; transition:color 160ms,background-color 160ms; }
