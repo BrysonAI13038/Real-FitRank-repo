@@ -1,0 +1,37 @@
+name: Supabase keep-alive
+
+# Free Supabase projects are paused after a week of low activity. This calls ping() daily
+# (see supabase/keepalive.sql) so FitRank stays awake. It also runs on demand from the
+# Actions tab. Scheduled workflows only run from the default branch (main).
+on:
+  schedule:
+    - cron: "17 9 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Call ping()
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_URL}" ] || [ -z "${SUPABASE_ANON_KEY}" ]; then
+            echo "::error::Add the SUPABASE_URL and SUPABASE_ANON_KEY repository secrets."
+            exit 1
+          fi
+          status=$(curl -sS --max-time 30 -o response.txt -w "%{http_code}" -X POST \
+            "${SUPABASE_URL%/}/rest/v1/rpc/ping" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+            -H "Content-Type: application/json" -d '{}')
+          echo "ping() answered HTTP ${status}"
+          if [ "${status}" -lt 200 ] || [ "${status}" -ge 300 ]; then
+            cat response.txt
+            exit 1
+          fi

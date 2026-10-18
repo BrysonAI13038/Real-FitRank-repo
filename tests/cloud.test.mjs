@@ -395,3 +395,33 @@ test('signInMethods: only the exact value "on" counts, and Apple is never offere
   assert.deepEqual(Object.keys(signInMethods({ VITE_APPLE_SIGNIN: 'on' })).sort(), ['email', 'google']);
   assert.equal(signInMethods({ VITE_APPLE_SIGNIN: 'on' }).google, false);
 });
+
+// ---- keep-alive: a daily write that stops Supabase pausing the free project ----
+const keepaliveSql = fs.readFileSync(new URL('../supabase/keepalive.sql', import.meta.url), 'utf8');
+const keepaliveYml = fs.readFileSync(new URL('../.github/workflows/supabase-keepalive.yml', import.meta.url), 'utf8');
+
+test('keepalive.sql: the table is locked down and ping() only writes one timestamp', () => {
+  assert.match(keepaliveSql, /alter table public\.keepalive enable row level security/);
+  assert.match(keepaliveSql, /revoke all on public\.keepalive from anon, authenticated/);
+  assert.doesNotMatch(keepaliveSql, /create policy/i, 'no policy means no direct access for anyone');
+  assert.match(keepaliveSql, /id integer primary key check \(id = 1\)/, 'a single row, so it can never grow');
+  assert.match(keepaliveSql, /returns void/);
+  assert.match(keepaliveSql, /security definer\s+set search_path = ''/);
+  assert.match(keepaliveSql, /revoke execute on function public\.ping\(\) from public/);
+  assert.match(keepaliveSql, /grant execute on function public\.ping\(\) to anon, authenticated/);
+  // It must never touch user data.
+  assert.doesNotMatch(keepaliveSql.replace(/--.*$/gm, ''), /workouts|goals|auth\./);
+});
+
+test('keepalive workflow: daily and on demand, least privilege, secrets only, fails loudly', () => {
+  assert.match(keepaliveYml, /schedule:\s+- cron: "\d+ \d+ \* \* \*"/);
+  assert.match(keepaliveYml, /workflow_dispatch:/);
+  assert.match(keepaliveYml, /permissions: \{\}/);
+  assert.match(keepaliveYml, /timeout-minutes: \d+/);
+  assert.match(keepaliveYml, /secrets\.SUPABASE_URL/);
+  assert.match(keepaliveYml, /secrets\.SUPABASE_ANON_KEY/);
+  assert.match(keepaliveYml, /\/rest\/v1\/rpc\/ping/);
+  assert.match(keepaliveYml, /exit 1/);
+  // No key or project address is written into the repo.
+  assert.doesNotMatch(keepaliveYml, /eyJ[A-Za-z0-9_-]{10}|sb_(publishable|secret)_|supabase\.co/);
+});
