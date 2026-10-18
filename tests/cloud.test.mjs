@@ -302,3 +302,78 @@ test('device import: unreadable device data is never offered and never touched',
   assert.equal(deviceImportState('alice', base), null);
   assert.equal(base.getItem('fitrank.data.v3'), '{not json');
 });
+
+// ---- email code sign-in (pure logic) ----
+const otp = load(src('cloud/otp'));
+
+test('otp: emails are trimmed and lowercased, and obviously wrong ones are rejected', () => {
+  assert.equal(otp.normalizeEmail('  Lifter@Example.COM '), 'lifter@example.com');
+  assert.ok(otp.isValidEmail('lifter@example.com'));
+  for (const bad of ['', 'lifter', 'lifter@', '@example.com', 'a b@example.com', 'lifter@example', `${'a'.repeat(250)}@example.com`]) assert.equal(otp.isValidEmail(bad), false, bad);
+});
+
+test('otp: codes keep digits only, accept pasted spacing, and need exactly 6 digits', () => {
+  assert.equal(otp.cleanCode('123 456'), '123456');
+  assert.equal(otp.cleanCode('12-34-56'), '123456');
+  assert.equal(otp.cleanCode('abc123'), '123');
+  assert.equal(otp.cleanCode('1234567890'), '123456');
+  assert.ok(otp.isCompleteCode('123456'));
+  for (const bad of ['', '12345', '1234567', '12345a']) assert.equal(otp.isCompleteCode(bad), false, bad);
+});
+
+test('otp: the code expires after 10 minutes and resend unlocks after 60 seconds', () => {
+  const sent = 1_000_000;
+  assert.equal(otp.secondsUntilResend(sent, sent), 60);
+  assert.equal(otp.secondsUntilResend(sent, sent + 59_001), 1);
+  assert.equal(otp.secondsUntilResend(sent, sent + 60_000), 0);
+  assert.equal(otp.secondsUntilResend(sent, sent + 500_000), 0);
+  assert.equal(otp.isExpired(sent, sent + 599_999), false);
+  assert.equal(otp.isExpired(sent, sent + 600_000), true);
+  // A clock that jumped backwards doesn't produce a negative countdown.
+  assert.equal(otp.secondsUntilResend(sent, sent - 5_000), 60);
+});
+
+test('otp: wrong and expired codes get different messages, decided by our own timer', () => {
+  const sent = 1_000_000;
+  // Supabase answers both the same way.
+  const rejected = { code: 'otp_expired', status: 403, message: 'Token has expired or is invalid' };
+  assert.equal(otp.verifyErrorMessage(rejected, sent, sent + 30_000), otp.WRONG_CODE_MESSAGE);
+  assert.equal(otp.verifyErrorMessage(rejected, sent, sent + 601_000), otp.EXPIRED_MESSAGE);
+  assert.equal(otp.verifyErrorMessage({ status: 400, message: 'Invalid token' }, sent, sent + 1_000), otp.WRONG_CODE_MESSAGE);
+});
+
+test('otp: offline, rate limits and unknown failures have friendly messages', () => {
+  const network = { name: 'AuthRetryableFetchError', message: 'Failed to fetch', status: 0 };
+  assert.equal(otp.sendErrorMessage(network), otp.NETWORK_MESSAGE);
+  assert.equal(otp.verifyErrorMessage(network, 0, 1), otp.NETWORK_MESSAGE);
+  assert.equal(otp.sendErrorMessage({ status: 429, code: 'over_email_send_rate_limit' }), otp.RATE_LIMIT_MESSAGE);
+  assert.equal(otp.sendErrorMessage({ code: 'over_request_rate_limit' }), otp.RATE_LIMIT_MESSAGE);
+  assert.match(otp.verifyErrorMessage({ status: 429 }, 0, 1), /Too many attempts/);
+  assert.match(otp.sendErrorMessage({ code: 'email_address_not_authorized', status: 400 }), /can’t receive codes yet/);
+  assert.match(otp.sendErrorMessage({ code: 'validation_failed', status: 400 }), /valid email/);
+  assert.match(otp.sendErrorMessage({ code: 'signup_disabled', status: 422 }), /isn’t available/);
+  assert.match(otp.sendErrorMessage({ status: 500, message: 'boom' }), /Couldn’t send a code/);
+  assert.match(otp.verifyErrorMessage({ status: 500, message: 'boom' }, 0, 1), /Couldn’t sign in/);
+  assert.match(otp.sendErrorMessage(null), /Couldn’t send a code/);
+});
+
+test('otp: the pending sign-in survives a reload, holds no secrets, and is dropped when stale or bad', () => {
+  const base = store();
+  const t = 5_000_000;
+  otp.savePending(base, { email: 'a@b.co', sentAt: t });
+  assert.deepEqual(plain(otp.loadPending(base, t + 120_000)), { email: 'a@b.co', sentAt: t });
+  assert.deepEqual(Object.keys(JSON.parse(base.getItem(otp.PENDING_KEY))).sort(), ['email', 'sentAt']);
+  assert.equal(otp.loadPending(base, t + 601_000), null);
+  assert.equal(otp.loadPending(base, t - 3_600_000), null);
+  for (const raw of ['{not json', 'null', '{"email":5,"sentAt":1}', '{"email":"nope","sentAt":5000000}', '{"email":"a@b.co"}']) {
+    const bad = store({ [otp.PENDING_KEY]: raw });
+    assert.equal(otp.loadPending(bad, t), null, raw);
+  }
+  otp.clearPending(base);
+  assert.equal(otp.loadPending(base, t), null);
+  // Blocked storage never throws.
+  const blocked = { getItem: () => { throw new Error('blocked'); }, setItem: () => { throw new Error('blocked'); }, removeItem: () => { throw new Error('blocked'); } };
+  assert.equal(otp.loadPending(blocked, t), null);
+  otp.savePending(blocked, { email: 'a@b.co', sentAt: t });
+  otp.clearPending(blocked);
+});
