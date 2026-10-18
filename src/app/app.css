@@ -168,3 +168,12 @@
 .app-signin-links { display:flex; flex-wrap:wrap; gap:12px; margin-top:6px; }
 .app-signin-form>button,.app-signin-links>button { margin-top:0; margin-right:0; }
 .app-signin-or { margin:16px 0 0; color:#96969f; font-size:11px; letter-spacing:.1em; text-transform:uppercase; }
+
+/* Privacy page and links */
+.app-privacy { max-width:680px; }
+.app-privacy h2 { margin-top:28px; font-size:16px; }
+.app-privacy ul { margin:12px 0 0; padding-left:20px; display:grid; gap:10px; }
+.app-privacy>p { margin-top:12px; }
+.app-privacy>.app-button { margin-top:28px; }
+.app-about>a.app-button { margin:20px 0 0 12px; }
+.app-signin-note a { color:inherit; text-decoration:underline; }

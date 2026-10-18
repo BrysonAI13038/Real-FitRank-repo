@@ -6,6 +6,7 @@ import "./app/app.css";
 import Introduction from "./app/Introduction";
 import SignIn from "./app/SignIn";
 import ImportPrompt from "./app/ImportPrompt";
+import Privacy from "./app/Privacy";
 import { hasSeenIntroduction, completeIntroduction } from "./app/introductionPreference";
 import { AccountProvider } from "./cloud/account";
 import { useAccount } from "./cloud/accountContext";
@@ -14,7 +15,7 @@ import { useSession } from "./cloud/useSession";
 const navigation = ["Home", "Workouts", "Progress", "Food", "Settings"] as const;
 function route() {
   const value = window.location.hash.replace(/^#\//, "");
-  return [...navigation.map(item => item.toLowerCase()), "log-workout"].includes(value) ? value : "home";
+  return [...navigation.map(item => item.toLowerCase()), "log-workout", "privacy"].includes(value) ? value : "home";
 }
 
 // Everything that needs an account: loads this account's data and syncs it.
@@ -52,7 +53,7 @@ export default function App() {
     return () => window.removeEventListener("hashchange", change);
   }, []);
   useEffect(() => {
-    document.title = showIntroduction ? "Welcome to FitRank" : !signedIn ? "FitRank · Sign in" : `FitRank · ${page === "log-workout" ? "Log Workout" : page[0].toUpperCase() + page.slice(1)}`;
+    document.title = page === "privacy" ? "FitRank · Privacy" : showIntroduction ? "Welcome to FitRank" : !signedIn ? "FitRank · Sign in" : `FitRank · ${page === "log-workout" ? "Log Workout" : page[0].toUpperCase() + page.slice(1)}`;
     main.current?.focus({ preventScroll: true });
     window.scrollTo(0, 0);
   }, [page, showIntroduction, signedIn]);
@@ -64,7 +65,7 @@ export default function App() {
       return <a key={label} href={`#/${target}`} aria-current={active ? "page" : undefined}>{label}{target === "food" && <small className="app-nav-soon"> Soon</small>}</a>;
     })}</nav>}
     <main id="main-content" ref={main} tabIndex={-1} className="app-main">
-      {showIntroduction ? <Introduction onComplete={() => {
+      {page === "privacy" ? <Privacy signedIn={signedIn} /> : showIntroduction ? <Introduction onComplete={() => {
         if (!completeIntroduction()) setIntroductionNotice("Your introduction preference couldn’t be saved in this browser. You can continue, but the introduction may appear next time.");
         setShowIntroduction(false);
       }} /> : <>

@@ -172,3 +172,20 @@ test('history explains a missing session bonus, and only then',()=>{
   const old = renderToStaticMarkup(React.createElement(WorkoutList,{workouts:[workout('y','2026-09-18T12:00:00',100,3)],details:true}));
   assert.doesNotMatch(old,/No session bonus/);
 });
+
+const { default: Privacy } = load('src/app/Privacy.tsx');
+const { PRIVACY_HREF } = load('src/app/privacyLink.ts');
+test('privacy page says what is stored and where, and how to export or delete; no placeholders',()=>{
+  const page = renderToStaticMarkup(React.createElement(Privacy,{signedIn:true}));
+  for (const phrase of [/Your email address/,/workouts/,/Supabase/,/Netlify/,/Google/,/No ads/,/No analytics/,/No tracking cookies/,/Export my data/,/Delete account/,/before accounts existed/,/Last updated/]) assert.match(page,phrase);
+  assert.doesNotMatch(page,/coming soon|todo|lorem|[\w.]+@[\w-]+\.\w+/i);
+});
+test('privacy page works signed out and its back link goes to the right place',()=>{
+  const out = renderToStaticMarkup(React.createElement(Privacy,{signedIn:false}));
+  assert.match(out,/href="#\/home"[^>]*>Back to sign in/);
+  assert.match(renderToStaticMarkup(React.createElement(Privacy,{signedIn:true})),/href="#\/settings"[^>]*>Back to Settings/);
+});
+test('settings links to the privacy page',()=>{
+  assert.equal(PRIVACY_HREF,'#/privacy');
+  assert.match(render(Settings,{data}),/href="#\/privacy"[^>]*>Privacy/);
+});

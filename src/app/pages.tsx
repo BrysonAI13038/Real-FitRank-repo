@@ -5,6 +5,7 @@ import { latestComparisons, summarize } from "./data";
 import { weekStatus } from "../workout/scoring";
 import Goals from "./Goals";
 import AccountSettings from "./AccountSettings";
+import { PRIVACY_HREF } from "./privacyLink";
 import Stats from "./Stats";
 import { exerciseName, History, PageHeading, RankCard, WorkoutList } from "./components";
 
@@ -55,5 +56,5 @@ export function Settings({ data }: { data: SavedData | null }) {
     } else if (hasReviewed.current) introductionButton.current?.focus();
   }, [reviewingIntroduction]);
   if (reviewingIntroduction) return <div ref={reviewContainer} tabIndex={-1} className="app-introduction-review"><Introduction reviewing onComplete={() => setReviewingIntroduction(false)} /></div>;
-  return <><PageHeading title="Settings" subtitle="Your app. Your data." /><AccountSettings data={data} /><section className="app-card app-about"><h2>About FitRank</h2><p>Log workouts, earn ELO, and build your rank over time.</p><p>Weight is recorded in pounds. ELO never decreases.</p><button ref={introductionButton} type="button" className="app-button app-secondary" onClick={() => setReviewingIntroduction(true)}>View FitRank Introduction</button></section></>;
+  return <><PageHeading title="Settings" subtitle="Your app. Your data." /><AccountSettings data={data} /><section className="app-card app-about"><h2>About FitRank</h2><p>Log workouts, earn ELO, and build your rank over time.</p><p>Weight is recorded in pounds. ELO never decreases.</p><button ref={introductionButton} type="button" className="app-button app-secondary" onClick={() => setReviewingIntroduction(true)}>View FitRank Introduction</button><a className="app-button app-secondary" href={PRIVACY_HREF}>Privacy</a></section></>;
 }
