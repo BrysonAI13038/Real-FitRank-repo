@@ -377,3 +377,21 @@ test('otp: the pending sign-in survives a reload, holds no secrets, and is dropp
   otp.savePending(blocked, { email: 'a@b.co', sentAt: t });
   otp.clearPending(blocked);
 });
+
+// ---- which sign-in methods a build offers ----
+const { signInMethods } = load(src('cloud/signInMethods'));
+
+test('signInMethods: both off by default, each flag turns on only its own method', () => {
+  assert.deepEqual(plain(signInMethods({})), { google: false, email: false });
+  assert.deepEqual(plain(signInMethods({ VITE_GOOGLE_SIGNIN: 'on' })), { google: true, email: false });
+  assert.deepEqual(plain(signInMethods({ VITE_EMAIL_SIGNIN: 'on' })), { google: false, email: true });
+  assert.deepEqual(plain(signInMethods({ VITE_GOOGLE_SIGNIN: 'on', VITE_EMAIL_SIGNIN: 'on' })), { google: true, email: true });
+});
+
+test('signInMethods: only the exact value "on" counts, and Apple is never offered', () => {
+  for (const value of ['true', '1', 'ON', 'On', ' on', 'on ', 'yes', '', true, 1, undefined, null]) {
+    assert.deepEqual(plain(signInMethods({ VITE_GOOGLE_SIGNIN: value, VITE_EMAIL_SIGNIN: value })), { google: false, email: false }, String(value));
+  }
+  assert.deepEqual(Object.keys(signInMethods({ VITE_APPLE_SIGNIN: 'on' })).sort(), ['email', 'google']);
+  assert.equal(signInMethods({ VITE_APPLE_SIGNIN: 'on' }).google, false);
+});

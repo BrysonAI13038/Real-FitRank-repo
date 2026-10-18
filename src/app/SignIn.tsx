@@ -4,11 +4,15 @@ import {
   CODE_LENGTH, cleanCode, clearPending, isCompleteCode, isExpired, isValidEmail, loadPending, normalizeEmail,
   savePending, secondsUntilResend, sendErrorMessage, verifyErrorMessage, EXPIRED_MESSAGE, type Pending,
 } from "../cloud/otp";
+import { signInMethods } from "../cloud/signInMethods";
 
-// Two steps: type your email, then type the 6-digit code we send. Everything happens in
-// the app, so it works the same in a browser and in the installed home-screen app.
+// Which methods appear is decided at build time (VITE_GOOGLE_SIGNIN / VITE_EMAIL_SIGNIN).
+// Google is the default. The email-code flow (type your email, then the 6-digit code we send)
+// is kept behind its own flag; it never leaves the app, so it also works when installed.
+const methods = signInMethods(import.meta.env);
+
 export default function SignIn({ error, unconfigured }: { error?: string; unconfigured?: boolean }) {
-  const [pending, setPending] = useState<Pending | null>(() => loadPending(localStorage, Date.now()));
+  const [pending, setPending] = useState<Pending | null>(() => methods.email ? loadPending(localStorage, Date.now()) : null);
   const [email, setEmail] = useState(pending?.email ?? "");
   const [code, setCode] = useState("");
   const [now, setNow] = useState(() => Date.now());
@@ -30,11 +34,18 @@ export default function SignIn({ error, unconfigured }: { error?: string; unconf
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, [pending]);
-  useEffect(() => { (step === "code" ? codeField : emailField).current?.focus(); }, [step]);
+  // Move focus into the email flow, but don't pull it off the Google button when both are shown.
+  useEffect(() => { if (step === "code") codeField.current?.focus(); else if (!methods.google) emailField.current?.focus(); }, [step]);
 
   const expired = pending ? isExpired(pending.sentAt, now) : false;
   const wait = pending ? secondsUntilResend(pending.sentAt, now) : 0;
 
+  async function signInWithGoogle() {
+    if (!supabase || busy) return;
+    setBusy(true); setMessage("");
+    const { error: failure } = await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: `${window.location.origin}/` } });
+    if (failure) { setMessage("Couldn’t start sign-in. Check your connection and try again."); setBusy(false); }
+  }
   async function sendCode(event?: FormEvent) {
     event?.preventDefault();
     if (!supabase || busy) return;
@@ -66,10 +77,12 @@ export default function SignIn({ error, unconfigured }: { error?: string; unconf
 
   return <section className="app-card app-signin" aria-labelledby="signin-title">
     <h2 id="signin-title">Sign in to FitRank</h2>
-    <p>Your workouts and ELO are saved to your account, so they follow you to any device. No password needed: we email you a code.</p>
-    {unconfigured ? <p role="alert">Sign-in isn’t set up for this build yet.</p> : <>
+    <p>Your workouts and ELO are saved to your account, so they follow you to any device.{methods.email && !methods.google && " No password needed: we email you a code."}</p>
+    {unconfigured || (!methods.google && !methods.email) ? <p role="alert">Sign-in isn’t set up for this build yet.</p> : <>
       {!online && <p role="status">Connect to the internet to sign in.</p>}
-      {step === "email" ? <form className="app-signin-form" onSubmit={sendCode} noValidate>
+      {methods.google && <button type="button" className="app-button" onClick={signInWithGoogle} disabled={!online || busy}>Continue with Google</button>}
+      {methods.google && methods.email && <p className="app-signin-or" aria-hidden="true">or</p>}
+      {methods.email && (step === "email" ? <form className="app-signin-form" onSubmit={sendCode} noValidate>
         <label htmlFor="signin-email">Email</label>
         <input id="signin-email" ref={emailField} className="app-input" type="email" inputMode="email" autoComplete="email" autoCapitalize="none" spellCheck={false} value={email} onChange={event => setEmail(event.target.value)} />
         <button type="submit" className="app-button" disabled={!online || busy || !email.trim()}>{busy ? "Sending…" : "Send code"}</button>
@@ -83,9 +96,9 @@ export default function SignIn({ error, unconfigured }: { error?: string; unconf
           <button type="button" className="app-button app-secondary" onClick={() => void sendCode()} disabled={!online || busy || wait > 0}>{wait > 0 ? `Send a new code in ${wait}s` : "Send a new code"}</button>
           <button type="button" className="app-button app-secondary" onClick={changeEmail} disabled={busy}>Use a different email</button>
         </div>
-      </form>}
+      </form>)}
     </>}
     {message && message !== EXPIRED_MESSAGE && <p role="alert">{message}</p>}
-    <p className="app-signin-note">We only use your email to sign you in. Nothing is posted anywhere.</p>
+    <p className="app-signin-note">FitRank uses only your email address to sign you in. Nothing is posted anywhere.</p>
   </section>;
 }
