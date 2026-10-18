@@ -1,5 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { missedSessionBonus, rankProgress, SESSION_ONCE_A_DAY } from "../workout/scoring";
+import RankBadge from "./RankBadge";
+import { rankStyle } from "./rankStyle";
 import { exercises } from "../workout/model";
 import type { SavedWorkout } from "../workout/storage";
 
@@ -16,8 +18,8 @@ export function EloExplanation() {
 export function RankCard({ elo }: { elo: number }) {
   const progress = rankProgress(elo);
   return <section className="app-card app-rank" aria-label="Your rank and ELO">
-    <div className="app-emblem" aria-hidden="true"><span>{progress.rank[0]}</span></div>
-    <p className="app-label">Current rank</p><h2>{progress.rank}</h2>
+    <RankBadge rank={progress.rank} />
+    <p className="app-label">Current rank</p><h2 style={{ color: rankStyle(progress.rank).light }}>{progress.rank}</h2>
     <p className="app-elo">{elo.toLocaleString()}</p><p className="app-label">ELO</p>
     <EloExplanation />
     <div className="app-rank-track" role="progressbar" aria-label={progress.next ? `Progress to ${progress.next}` : "Elite rank achieved"} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress.percent)}><div style={{ width: `${progress.percent}%` }} /></div>

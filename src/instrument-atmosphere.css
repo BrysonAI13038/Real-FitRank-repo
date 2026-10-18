@@ -10,7 +10,7 @@
 }
 .fitrank-instrument button:focus-visible,
 .fitrank-workout-surface button:focus-visible {
-  outline: 2px solid #f59e0b;
+  outline: 2px solid #34d399;
   outline-offset: 3px;
 }
 .fitrank-instrument button:active:not(:disabled),

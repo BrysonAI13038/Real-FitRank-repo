@@ -29,9 +29,9 @@ export default function WorkoutLogger({ onBack, onSaved }: { onBack: () => void;
       submitting.current = false;
     }
   }
-  return <section style={{ fontFamily: "Inter, sans-serif", colorScheme: "dark" }} className="fitrank-workout-surface text-[#f4f4f5]">
-    <h2 className="mb-6 border-b border-[#26262b] pb-4 text-[22px] font-bold tracking-wide" style={{ fontFamily: "Barlow Condensed, sans-serif" }}>{reward ? "SESSION COMPLETE" : "LOG WORKOUT"}</h2>
-    {error && <p role="alert" className="mb-4 text-xs leading-relaxed text-[#f59e0b]">{error}</p>}
+  return <section style={{ fontFamily: "Inter, sans-serif", colorScheme: "dark" }} className="fitrank-workout-surface text-[#ecfdf5]">
+    <h2 className="mb-6 border-b border-[#1b3a2b] pb-4 text-[22px] font-bold tracking-wide" style={{ fontFamily: "Barlow Condensed, sans-serif" }}>{reward ? "SESSION COMPLETE" : "LOG WORKOUT"}</h2>
+    {error && <p role="alert" className="mb-4 text-xs leading-relaxed text-[#34d399]">{error}</p>}
     {reward ? <WorkoutReward reward={reward} onBack={onBack} /> : <WorkoutInput onSubmit={submit} onCancel={onBack} />}
   </section>;
 }

@@ -231,3 +231,26 @@ test('progress shows the muscle map only when there is history',()=>{
   assert.doesNotMatch(render(Progress,{data:empty}),/Muscle map/);
   assert.match(render(Progress,{data}),/Muscle map/);
 });
+
+const { RANK_STYLES, rankStyle } = load('src/app/rankStyle.ts');
+const { default: RankBadge } = load('src/app/RankBadge.tsx');
+const { RANKS } = load('src/workout/scoring.ts');
+test('every rank has a distinct metal color and a badge; unknown ranks fall back safely',()=>{
+  for (const rank of RANKS) assert.ok(RANK_STYLES[rank.name], `missing style for ${rank.name}`);
+  assert.equal(new Set(Object.values(RANK_STYLES).map(style=>style.color)).size,RANKS.length);
+  assert.equal(rankStyle('Nonsense').color,RANK_STYLES.Bronze.color);
+  const elite = renderToStaticMarkup(React.createElement(RankBadge,{rank:'Elite'}));
+  assert.match(elite,/data-rank="Elite"/);
+  assert.match(elite,/aria-hidden="true"/);
+  assert.equal((elite.match(/l5 6 l-5 6 l-5 -6 Z/g)||[]).length,3);          // 3 gems
+  assert.equal((renderToStaticMarkup(React.createElement(RankBadge,{rank:'Bronze'})).match(/l5 6 l-5 6 l-5 -6 Z/g)||[]).length,0);
+});
+test('home shows the rank badge in the tier color next to the written rank',()=>{
+  const home = render(Home,{data});
+  assert.match(home,/data-rank="Bronze"/);
+  assert.match(home,/<h2[^>]*>Bronze<\/h2>/);
+});
+test('the old black-and-orange palette is gone from the app',()=>{
+  const files = ['src/app/app.css','src/instrument-atmosphere.css','src/workout/WorkoutInput.tsx','src/workout/WorkoutReward.tsx','src/workout/ExercisePicker.tsx','index.html','public/manifest.webmanifest'];
+  for (const file of files) assert.doesNotMatch(fs.readFileSync(file,'utf8'),/#f59e0b|#0c0c0e|#161618|245,158,11/i,file);
+});
