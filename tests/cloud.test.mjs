@@ -186,7 +186,7 @@ test('the schema earned cap matches the maximum the code can award', () => {
   const goalsMax = GOAL_RULES.maxActive * (GOAL_RULES.baseReward + GOAL_RULES.bonusReward);
   const schema = fs.readFileSync(new URL('../supabase/schema.sql', import.meta.url), 'utf8');
   const cap = Number(schema.match(/earned between 0 and (\d+)/)[1]);
-  assert.equal(sessionMax, 170);
+  assert.equal(sessionMax, 185);
   assert.equal(goalsMax, 450);
   assert.ok(sessionMax + goalsMax <= cap, 'schema cap is below what scoring can award');
   assert.equal(cap, sessionMax + goalsMax, 'schema cap is looser than needed; update it deliberately');
@@ -209,11 +209,11 @@ test('check-local-data.js passes clean data and flags anything over the schema l
     const result = vm.runInNewContext(code, { localStorage, TextEncoder, JSON, console: { log: line => logs.push(line) } });
     return { result: plain(result), logs };
   };
-  const clean = run({ 'fitrank.data.v3': JSON.stringify({ version: 3, workouts: [workout('a', 5, 170), workout('b', 6, 620)], goals: [goal('g')] }) });
+  const clean = run({ 'fitrank.data.v3': JSON.stringify({ version: 3, workouts: [workout('a', 5, 185), workout('b', 6, 635)], goals: [goal('g')] }) });
   assert.equal(clean.result.workouts, 2);
-  assert.equal(clean.result.maxEarned, 620);
+  assert.equal(clean.result.maxEarned, 635);
   assert.equal(clean.result.overLimit.length, 0);
-  const dirty = run({ 'fitrank.data.v3': JSON.stringify({ version: 3, workouts: [workout('a', 5, 621)], goals: [] }) });
+  const dirty = run({ 'fitrank.data.v3': JSON.stringify({ version: 3, workouts: [workout('a', 5, 636)], goals: [] }) });
   assert.equal(dirty.result.overLimit.length, 1);
 });
 

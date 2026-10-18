@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { goalLabel } from "./goals";
-import { rankProgress } from "./scoring";
+import { missedSessionBonus, rankProgress, SESSION_ONCE_A_DAY } from "./scoring";
 import type { Reward } from "./storage";
 import "./workout-success.css";
 
@@ -48,7 +48,8 @@ export default function WorkoutReward({ reward, onBack }: { reward: Reward; onBa
     </div>
     {reward.goalsAchieved.map(goal => <div key={goal.id} role="status" className="mb-4 rounded-[2px] border border-[#f59e0b] bg-[#f59e0b]/10 px-4 py-3 text-xs"><p className="font-semibold uppercase tracking-widest text-[#f59e0b]">Goal achieved</p><p className="mt-1 text-[#f4f4f5]">{goalLabel(goal)} · +{goal.reward} ELO</p></div>)}
     {reward.workout.breakdown?.length
-      ? <ul aria-label="How this session earned ELO" className="mb-6 space-y-2 text-xs text-[#b7b7c0]">{reward.workout.breakdown.map(line => <li key={line.label} className="flex justify-between gap-3"><span>{line.label}</span><span className="font-semibold text-[#f59e0b]">+{line.amount}</span></li>)}</ul>
+      ? <><ul aria-label="How this session earned ELO" className="mb-3 space-y-2 text-xs text-[#b7b7c0]">{reward.workout.breakdown.map(line => <li key={line.label} className="flex justify-between gap-3"><span>{line.label}</span><span className="font-semibold text-[#f59e0b]">+{line.amount}</span></li>)}</ul>
+        {missedSessionBonus(reward.workout.breakdown) ? <p className="mb-6 text-xs leading-relaxed text-[#a1a1aa]">{SESSION_ONCE_A_DAY}</p> : <div className="mb-3" />}</>
       : reward.earned === 0 && <p className="mb-6 text-xs leading-relaxed text-[#b7b7c0]">No ELO this time. You already earned today's session ELO. Your workout is saved, and nothing is lost.</p>}
     <p className="mb-6 text-xs text-[#a1a1aa]">{reward.workout.exercises.length} {reward.workout.exercises.length === 1 ? "exercise" : "exercises"} · {sets} {sets === 1 ? "set" : "sets"} completed</p>
     <button type="button" onClick={onBack} className="w-full cursor-pointer rounded-[1px] bg-[#f59e0b] px-3 py-3 text-[13px] font-semibold text-black hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f59e0b]">← Back to home</button>

@@ -157,3 +157,4 @@
 .app-input:focus { outline:none; border-color:#f59e0b; }
 .app-danger { background:#b42318; border-color:#b42318; color:#fff; }
 .app-account+.app-account { margin-top:24px; }
+.app-breakdown .app-breakdown-note { display:block; color:#96969f; font-size:11px; line-height:1.5; }

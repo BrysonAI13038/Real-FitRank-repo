@@ -31,10 +31,15 @@ export type ScoreResult = { earned: number; breakdown: Breakdown; achievedGoalId
 //   all-time best (max milestoneCap per exercise per session). First sessions and
 //   bodyweight-only history set a baseline, not a milestone.
 // Goal rewards (set when the goal was created) are added on top and are not rank-scaled.
-// The cloud schema (supabase/schema.sql) caps a workout's earned ELO at 620: 170 from
+// The cloud schema (supabase/schema.sql) caps a workout's earned ELO at 635: 185 from
 // these amounts at ×1.0 plus maxActive goals at their maximum reward (see GOAL_RULES).
 // If SCORING or GOAL_RULES change, update that cap; tests/cloud.test.mjs checks it.
-export const SCORING = { session: 10, weekly: 15, weeklyDays: 3, streakPerWeek: 5, streakMaxWeeks: 5, effort: 3, effortMinSets: 3, effortCap: 5, milestoneLbs: 20, milestone: 5, milestoneCap: 3 };
+export const SCORING = { session: 10, weekly: 15, weeklyDays: 3, streakPerWeek: 5, streakMaxWeeks: 5, effort: 6, effortMinSets: 3, effortCap: 5, milestoneLbs: 20, milestone: 5, milestoneCap: 3 };
+
+// Explains a breakdown with no "Session" line (a later session the same day). Display only:
+// it never changes what was earned. Workouts saved before breakdowns existed have none.
+export const SESSION_ONCE_A_DAY = "No session bonus: you already earned today’s. It’s once per day, so extra sessions still earn effort, milestones and goals.";
+export const missedSessionBonus = (breakdown?: Breakdown) => !!breakdown?.length && !breakdown.some(line => line.label === "Session");
 
 export const dayKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 // Local-time Monday 00:00 of the week containing `date`.

@@ -4,7 +4,7 @@
 
 -- ---------------------------------------------------------------------------
 -- workouts: immutable. Clients can read and insert their own rows, nothing else.
--- earned <= 620: the most one workout can earn today is 170 from SCORING (all at x1.0)
+-- earned <= 635: the most one workout can earn today is 185 from SCORING (all at x1.0)
 -- plus 3 active goals at 150 each = 450. Update this if SCORING or GOAL_RULES change
 -- (tests/cloud.test.mjs checks that this number still matches the code).
 -- ---------------------------------------------------------------------------
@@ -12,7 +12,7 @@ create table public.workouts (
   user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
   id text not null check (char_length(id) between 1 and 64),
   completed_at timestamptz not null,
-  earned integer not null check (earned between 0 and 620),
+  earned integer not null check (earned between 0 and 635),
   data jsonb not null check (octet_length(data::text) < 20000),
   created_at timestamptz not null default now(),
   primary key (user_id, id)

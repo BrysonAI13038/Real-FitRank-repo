@@ -14,7 +14,7 @@ function load(name) {
   modules.set(name, context.exports);
   return context.exports;
 }
-const { scoreWorkout, rankProgress, rankMultiplier, weekStatus, RANKS } = load('scoring');
+const { scoreWorkout, rankProgress, rankMultiplier, weekStatus, RANKS, missedSessionBonus, SESSION_ONCE_A_DAY } = load('scoring');
 const { saveWorkout, loadData, addGoal, deleteGoal } = load('storage');
 const { validateGoal, goalReward, currentBest, isGoalMet, GoalError } = load('goals');
 const { processWorkout, processSession } = load('model');
@@ -59,7 +59,7 @@ test('20 lb milestones: per boundary above the all-time best, capped, baseline-f
   assert.equal(score([exercise(120), exercise(80, 8, 'row')], hist([exercise(100), at(1)], [exercise(60, 8, 'row'), at(1)])).earned, 20);
   assert.equal(score([exercise(120)], hist([exercise(100), at(1)], [exercise(150), at(1)])).earned, 10);
   const manySets = { exerciseId: 'bench-press', sets: [{ weightLbs: 120, reps: 5 }, { weightLbs: 80, reps: 12 }, { weightLbs: 80, reps: 12 }] };
-  assert.equal(score([manySets], before(100)).earned, 18);
+  assert.equal(score([manySets], before(100)).earned, 21);
 });
 test('weekly target: reached on the 3rd distinct day of a Mon-Sun week, once', () => {
   const day = d => [exercise(), at(d)];
@@ -434,22 +434,22 @@ test('addGoal rule violations throw GoalError', () => {
 
 const setsOf = (count, exerciseId = 'bench-press', weight = 50) => ({ exerciseId, sets: Array.from({ length: count }, () => ({ weightLbs: weight, reps: 8 })) });
 const five = ['bench-press', 'squat', 'deadlift', 'row', 'overhead-press'];
-test('effort bonus: +3 per exercise with 3+ sets, 5 per day, no repeat credit, rank-scaled', () => {
-  assert.equal(score([setsOf(3)]).earned, 13);
-  assert.deepEqual(lines(score([setsOf(3)]))[1], { label: 'Effort: 1 exercise with 3+ sets', amount: 3 });
+test('effort bonus: +6 per exercise with 3+ sets, 5 per day, no repeat credit, rank-scaled', () => {
+  assert.equal(score([setsOf(3)]).earned, 16);
+  assert.deepEqual(lines(score([setsOf(3)]))[1], { label: 'Effort: 1 exercise with 3+ sets', amount: 6 });
   assert.equal(score([setsOf(2)]).earned, 10);
-  assert.equal(score([setsOf(3), setsOf(2, 'row'), setsOf(4, 'squat')]).earned, 16);
-  assert.equal(score(five.map(id => setsOf(3, id))).earned, 10 + 15);
-  assert.equal(score([...five, 'biceps-curl'].map(id => setsOf(3, id))).earned, 10 + 15);
+  assert.equal(score([setsOf(3), setsOf(2, 'row'), setsOf(4, 'squat')]).earned, 22);
+  assert.equal(score(five.map(id => setsOf(3, id))).earned, 10 + 30);
+  assert.equal(score([...five, 'biceps-curl'].map(id => setsOf(3, id))).earned, 10 + 30);
   // Splitting a day: new exercises still earn until 5 are credited, repeats earn nothing.
   const morning = hist([setsOf(3, 'bench-press'), at(2, 7)], [setsOf(3, 'squat'), at(2, 8)]);
   assert.equal(score([setsOf(3, 'bench-press'), setsOf(3, 'squat')], morning).earned, 0);
-  assert.equal(score([setsOf(3, 'bench-press'), setsOf(3, 'deadlift')], morning).earned, 3);
-  assert.equal(score(['deadlift', 'row', 'overhead-press', 'biceps-curl'].map(id => setsOf(3, id)), morning).earned, 9);
+  assert.equal(score([setsOf(3, 'bench-press'), setsOf(3, 'deadlift')], morning).earned, 6);
+  assert.equal(score(['deadlift', 'row', 'overhead-press', 'biceps-curl'].map(id => setsOf(3, id)), morning).earned, 18);
   // A new day starts a fresh allowance.
-  assert.equal(score([setsOf(3)], morning, 0, at(3)).earned, 13);
-  assert.equal(score([setsOf(3), setsOf(3, 'row')], [], 7500).earned, 5 + 3);
-  assert.equal(score([setsOf(3)], [], 300).earned, 9 + 3);
+  assert.equal(score([setsOf(3)], morning, 0, at(3)).earned, 16);
+  assert.equal(score([setsOf(3), setsOf(3, 'row')], [], 7500).earned, 5 + 6);
+  assert.equal(score([setsOf(3)], [], 300).earned, 9 + 5);
 });
 
 test('stats: per-exercise series, volume and bodyweight handling', () => {
@@ -485,4 +485,19 @@ test('stats: ELO series accumulates earned; muscle sets cover every group', () =
   assert.equal(muscles.find(m => m.muscle === 'Chest').sets, 1);
   assert.equal(muscles.find(m => m.muscle === 'Quads').sets, 1);
   assert.equal(muscles.find(m => m.muscle === 'Calves').sets, 0);
+});
+
+test('a later session the same day explains the missing session bonus without changing ELO',()=>{
+  const first=scoreWorkout([exercise()],[],0,new Date('2026-03-10T09:00:00'));
+  assert.ok(first.breakdown.some(line=>line.label==='Session'));
+  assert.equal(missedSessionBonus(first.breakdown),false);
+  const history=[{completedAt:new Date('2026-03-10T09:00:00').toISOString(),exercises:[exercise()]}];
+  const second=scoreWorkout([exercise(100,8,'squat')].map(ex=>({...ex,sets:[ex.sets[0],ex.sets[0],ex.sets[0]]})),history,first.earned,new Date('2026-03-10T18:00:00'));
+  assert.deepEqual(plain(second.breakdown.map(line=>line.label.split(':')[0])),['Effort']);
+  assert.equal(second.earned,6);
+  assert.equal(missedSessionBonus(second.breakdown),true);
+  assert.match(SESSION_ONCE_A_DAY,/once per day/);
+  // Workouts saved before breakdowns existed have nothing to explain.
+  assert.equal(missedSessionBonus(undefined),false);
+  assert.equal(missedSessionBonus([]),false);
 });

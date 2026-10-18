@@ -161,3 +161,14 @@ test('progress charts: hidden when empty, labelled SVG charts and records with h
   const one={...data,workouts:[data.workouts[0]]};
   assert.match(render(Progress,{data:one}),/Log at least two sessions to see a trend/);
 });
+
+const { WorkoutList } = load('src/app/components.tsx');
+test('history explains a missing session bonus, and only then',()=>{
+  const withBreakdown = breakdown => [{...workout('x','2026-09-18T12:00:00',100,3),breakdown}];
+  const later = renderToStaticMarkup(React.createElement(WorkoutList,{workouts:withBreakdown([{label:'Effort: 1 exercise with 3+ sets',amount:3}]),details:true}));
+  assert.match(later,/No session bonus: you already earned today/);
+  const first = renderToStaticMarkup(React.createElement(WorkoutList,{workouts:withBreakdown([{label:'Session',amount:10},{label:'Effort: 1 exercise with 3+ sets',amount:3}]),details:true}));
+  assert.doesNotMatch(first,/No session bonus/);
+  const old = renderToStaticMarkup(React.createElement(WorkoutList,{workouts:[workout('y','2026-09-18T12:00:00',100,3)],details:true}));
+  assert.doesNotMatch(old,/No session bonus/);
+});

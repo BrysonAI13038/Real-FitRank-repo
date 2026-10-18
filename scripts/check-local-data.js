@@ -2,7 +2,7 @@
 // have been logging workouts in). It changes nothing. It reports whether your saved data
 // fits the cloud schema's limits (supabase/schema.sql) so the import can't be rejected.
 (() => {
-  const LIMITS = { earned: 620, bytes: 20000 };
+  const LIMITS = { earned: 635, bytes: 20000 };
   const bytes = value => new TextEncoder().encode(JSON.stringify(value)).length;
   const report = { keys: {}, workouts: 0, maxEarned: 0, maxWorkoutBytes: 0, goals: 0, maxGoalBytes: 0, overLimit: [] };
   // The app reads the newest key present, so counts and maximums come from that one;

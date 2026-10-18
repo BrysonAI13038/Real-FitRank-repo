@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { rankProgress } from "../workout/scoring";
+import { missedSessionBonus, rankProgress, SESSION_ONCE_A_DAY } from "../workout/scoring";
 import { exercises } from "../workout/model";
 import type { SavedWorkout } from "../workout/storage";
 
@@ -29,7 +29,7 @@ export function WorkoutList({ workouts, details = false }: { workouts: SavedWork
   if (!workouts.length) return <div className="app-card"><h3>Your first session starts here.</h3><p>Log a workout to start building your history and rank progress.</p></div>;
   return <div className="app-workouts">{[...workouts].reverse().map(workout => <article className="app-card" key={workout.id}>
     <div className="app-row"><time dateTime={workout.completedAt}>{new Date(workout.completedAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</time><span className="app-accent">+{workout.earned} ELO</span></div>
-    {details && workout.breakdown && workout.breakdown.length > 0 && <ul className="app-breakdown" aria-label="How this session earned ELO">{workout.breakdown.map((line, i) => <li key={i}><span>{line.label}</span><span className="app-accent">+{line.amount}</span></li>)}</ul>}
+    {details && workout.breakdown && workout.breakdown.length > 0 && <ul className="app-breakdown" aria-label="How this session earned ELO">{workout.breakdown.map((line, i) => <li key={i}><span>{line.label}</span><span className="app-accent">+{line.amount}</span></li>)}{missedSessionBonus(workout.breakdown) && <li className="app-breakdown-note">{SESSION_ONCE_A_DAY}</li>}</ul>}
     {workout.exercises.map(exercise => <div className="app-exercise" key={exercise.exerciseId}>
       <h3>{exerciseName(exercise.exerciseId)}</h3>
       <p>{exercise.sets.length} {exercise.sets.length === 1 ? "set" : "sets"}</p>
