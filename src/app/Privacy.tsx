@@ -1,5 +1,7 @@
 // A plain-language description of what FitRank stores and where. It describes what the app
 // does today; if analytics, ads or a new service are ever added, update this page first.
+import { TERMS_HREF } from "./legalLinks";
+
 const UPDATED = "October 18, 2026";
 
 export default function Privacy({ signedIn }: { signedIn: boolean }) {
@@ -37,7 +39,7 @@ export default function Privacy({ signedIn }: { signedIn: boolean }) {
 
     <h2>Questions</h2>
     <p>There is no contact address or form yet. You can export or delete your data yourself at any time in Settings.</p>
-    <p>If this page changes, the date at the top changes too.</p>
+    <p>If this page changes, the date at the top changes too. See also the <a href={TERMS_HREF}>Terms of service</a>.</p>
 
     <a className="app-button app-secondary" href={signedIn ? "#/settings" : "#/home"}>{signedIn ? "Back to Settings" : "Back to sign in"}</a>
   </article>;
