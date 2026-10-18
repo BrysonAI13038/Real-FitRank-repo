@@ -69,6 +69,20 @@ export function eloSeries(history: History): { date: string; elo: number }[] {
   return history.map(workout => ({ date: workout.completedAt, elo: elo += workout.earned ?? 0 }));
 }
 
+// Sets per primary muscle group over the last `days` days (every group present, zero if
+// untrained). `days: null` means all history. Only workouts between the cutoff and `now` count.
+export function recentMuscleSets(history: History, days: number | null, now = new Date()): { muscle: string; sets: number }[] {
+  const from = days === null ? -Infinity : now.getTime() - days * 24 * 60 * 60 * 1000;
+  return muscleSets(history.filter(workout => {
+    const time = Date.parse(workout.completedAt);
+    return time >= from && time <= now.getTime();
+  }));
+}
+
+// Shading step 0 to 4, relative to the most-trained muscle in the same view, so it never
+// implies a target. 0 means no sets; 4 means the most.
+export const muscleLevel = (sets: number, max: number) => sets <= 0 || max <= 0 ? 0 : Math.min(4, Math.ceil(4 * sets / max));
+
 // Total sets per primary muscle group, every group present (zero if untrained).
 export function muscleSets(history: History): { muscle: string; sets: number }[] {
   const totals = new Map<string, number>(MUSCLE_GROUPS.map(muscle => [muscle, 0]));

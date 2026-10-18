@@ -20,7 +20,7 @@ const { validateGoal, goalReward, currentBest, isGoalMet, GoalError } = load('go
 const { processWorkout, processSession } = load('model');
 const { exercises, searchExercises, MUSCLE_GROUPS } = load('exercises');
 const { loadDraft, saveDraft, clearDraft } = load('draft');
-const { exerciseSeries, personalRecords, weeklyCounts, eloSeries, muscleSets } = load('stats');
+const { exerciseSeries, personalRecords, weeklyCounts, eloSeries, muscleSets, recentMuscleSets, muscleLevel } = load('stats');
 const exercise = (weight = 100, reps = 8, exerciseId = 'bench-press') => ({ exerciseId, sets: [{ weightLbs: weight, reps }] });
 function store() {
   const data = new Map();
@@ -500,4 +500,38 @@ test('a later session the same day explains the missing session bonus without ch
   // Workouts saved before breakdowns existed have nothing to explain.
   assert.equal(missedSessionBonus(undefined),false);
   assert.equal(missedSessionBonus([]),false);
+});
+
+test('recent muscle sets: window cutoff, future workouts, all-time, and every group present', () => {
+  const now = new Date('2026-03-20T12:00:00Z');
+  const day = (n, hour = 12) => new Date(Date.UTC(2026, 2, 20 - n, hour)).toISOString();
+  const sets = (n, id = 'bench-press') => ({ exerciseId: id, sets: Array.from({ length: n }, () => ({ weightLbs: 100, reps: 8 })) });
+  const history = [
+    { completedAt: day(40), exercises: [sets(5)] },                    // all-time only
+    { completedAt: day(20), exercises: [sets(4, 'squat')] },           // 30 days only
+    { completedAt: day(7, 12), exercises: [sets(3)] },                 // exactly 7 days ago: included
+    { completedAt: day(7, 11), exercises: [sets(9)] },                 // an hour too old for 7 days
+    { completedAt: day(1), exercises: [sets(2), sets(3, 'row')] },
+    { completedAt: day(-1), exercises: [sets(50)] },                   // in the future: ignored
+  ];
+  const by = list => Object.fromEntries(plain(list).map(item => [item.muscle, item.sets]));
+  const week = by(recentMuscleSets(history, 7, now));
+  assert.equal(week.Chest, 5);   // 3 + 2
+  assert.equal(week.Back, 3);
+  assert.equal(week.Quads, 0);
+  assert.equal(by(recentMuscleSets(history, 30, now)).Chest, 5 + 9);
+  assert.equal(by(recentMuscleSets(history, 30, now)).Quads, 4);
+  assert.equal(by(recentMuscleSets(history, null, now)).Chest, 5 + 9 + 5);
+  assert.equal(Object.keys(week).length, MUSCLE_GROUPS.length);
+  assert.deepEqual(plain(recentMuscleSets([], 7, now)).every(item => item.sets === 0), true);
+});
+
+test('muscle levels: quarters of the most-trained muscle (0 to 4), never negative or above 4', () => {
+  assert.equal(muscleLevel(0, 10), 0);
+  assert.equal(muscleLevel(5, 0), 0);
+  assert.equal(muscleLevel(-3, 10), 0);
+  assert.deepEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => muscleLevel(n, 10)), [1, 1, 2, 2, 2, 3, 3, 4, 4, 4]);
+  assert.equal(muscleLevel(10, 10), 4);
+  assert.equal(muscleLevel(99, 10), 4);
+  assert.equal(muscleLevel(1, 100), 1);
 });

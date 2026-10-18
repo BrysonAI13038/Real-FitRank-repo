@@ -179,3 +179,25 @@
 .app-about>a.app-button { margin:20px 0 0 12px; }
 .app-privacy a:not(.app-button) { color:inherit; text-decoration:underline; }
 .app-signin-note a { color:inherit; text-decoration:underline; }
+
+/* Muscle map */
+.app-muscle { --mm-base:#10231a; --mm-0:#14281e; --mm-1:#1f6f4a; --mm-2:#14a05f; --mm-3:#57d364; --mm-4:#b8f43b; }
+.app-segmented { display:inline-flex; margin-top:16px; border:1px solid #3f3f46; border-radius:1px; overflow:hidden; }
+.app-segmented button { min-height:44px; padding:0 16px; border:0; border-right:1px solid #3f3f46; background:transparent; color:#b7b7c0; font:inherit; font-size:13px; cursor:pointer; }
+.app-segmented button:last-child { border-right:0; }
+.app-segmented button[aria-pressed="true"] { background:var(--mm-2); color:#04110a; font-weight:600; }
+.app-body-figures { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; max-width:480px; margin-top:20px; }
+.app-body-figure { margin:0; text-align:center; }
+.app-body-figure figcaption { margin-top:6px; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:#96969f; }
+.app-body { display:block; width:100%; height:auto; }
+.mm-base path { fill:var(--mm-base); stroke:#161618; stroke-width:1.5; }
+.mm-shape path { stroke:#161618; stroke-width:1.5; transition:fill 160ms; }
+.mm-l0 { background:var(--mm-0); } .mm-l1 { background:var(--mm-1); } .mm-l2 { background:var(--mm-2); } .mm-l3 { background:var(--mm-3); } .mm-l4 { background:var(--mm-4); }
+g.mm-l0 path { fill:var(--mm-0); } g.mm-l1 path { fill:var(--mm-1); } g.mm-l2 path { fill:var(--mm-2); } g.mm-l3 path { fill:var(--mm-3); } g.mm-l4 path { fill:var(--mm-4); }
+g.mm-l0,g.mm-l1,g.mm-l2,g.mm-l3,g.mm-l4 { background:none; }
+.app-muscle-legend { display:flex; align-items:center; gap:6px; margin-top:16px; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:#96969f; }
+.app-muscle-legend i { width:22px; height:10px; border-radius:1px; }
+.app-muscle-list { list-style:none; margin:20px 0 0; padding:0; display:grid; gap:8px; max-width:480px; }
+.app-muscle-list li { display:grid; grid-template-columns:14px 1fr auto; align-items:center; gap:10px; font-size:13px; }
+.app-muscle-list i { width:14px; height:14px; border-radius:1px; border:1px solid #26262b; }
+.app-muscle-list strong { font-weight:600; font-variant-numeric:tabular-nums; }

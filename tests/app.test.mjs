@@ -204,3 +204,30 @@ test('terms and privacy link to each other, and settings links to terms',()=>{
   assert.match(render(Settings,{data}),/href="#\/terms"[^>]*>Terms/);
   assert.match(render(Settings,{data}),/href="#\/privacy"[^>]*>Privacy/);
 });
+
+const { default: MuscleMap } = load('src/app/MuscleMap.tsx');
+const mapNow = new Date('2026-03-20T12:00:00Z');
+const mapWorkout = (id, iso, exercises) => ({ id, completedAt: iso, earned: 10, exercises });
+const sets = (n, exerciseId) => ({ exerciseId, sets: Array.from({ length: n }, () => ({ weightLbs: 100, reps: 8 })) });
+const mapHtml = workouts => renderToStaticMarkup(React.createElement(MuscleMap, { workouts, now: mapNow }));
+test('muscle map: exact set counts per main muscle, relative shading, every muscle listed',()=>{
+  const html = mapHtml([mapWorkout('a','2026-03-19T12:00:00Z',[sets(3,'bench-press'),sets(1,'squat')])]);
+  for (const muscle of ['Chest','Back','Shoulders','Biceps','Triceps','Forearms','Core','Quads','Hamstrings','Glutes','Calves']) assert.match(html,new RegExp(`<span>${muscle}</span>`));
+  assert.match(html,/<span>Chest<\/span><strong>3 sets<\/strong>/);
+  assert.match(html,/<span>Quads<\/span><strong>1 set<\/strong>/);
+  assert.match(html,/<g class="mm-shape mm-l4" data-muscle="Chest">/);   // the most-trained muscle is brightest
+  assert.match(html,/<g class="mm-shape mm-l2" data-muscle="Quads">/);   // 1 of 3 sets
+  assert.match(html,/<g class="mm-shape mm-l0" data-muscle="Back">/);    // untrained
+  assert.match(html,/aria-pressed="true">7 days/);
+  assert.doesNotMatch(html,/No sets logged/);
+});
+test('muscle map: only the chosen period counts, and an empty period says so',()=>{
+  const old = mapHtml([mapWorkout('a','2026-02-01T12:00:00Z',[sets(5,'bench-press')])]);
+  assert.match(old,/No sets logged in the last 7 days/);
+  assert.match(old,/<span>Chest<\/span><strong>0 sets<\/strong>/);
+  assert.match(mapHtml([]),/No sets logged in the last 7 days/);
+});
+test('progress shows the muscle map only when there is history',()=>{
+  assert.doesNotMatch(render(Progress,{data:empty}),/Muscle map/);
+  assert.match(render(Progress,{data}),/Muscle map/);
+});

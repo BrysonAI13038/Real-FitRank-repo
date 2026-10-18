@@ -4,6 +4,7 @@ import { SCORING } from "../workout/scoring";
 import { eloSeries, exerciseSeries, personalRecords, weeklyCounts } from "../workout/stats";
 import { BarChart, LineChart } from "./charts";
 import { exerciseName } from "./components";
+import MuscleMap from "./MuscleMap";
 
 const WEEKS = 12;
 const shortDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
@@ -18,6 +19,7 @@ export default function Stats({ data }: { data: SavedData }) {
   const series = exerciseSeries(data.workouts, exerciseId).filter(point => point.bestWeight > 0);
   const weeks = weeklyCounts(data.workouts, WEEKS);
   return <>
+    <MuscleMap workouts={data.workouts} />
     <section className="app-card"><h2>ELO over time</h2>
       <LineChart label="ELO over time" points={eloSeries(data.workouts).map(point => ({ date: point.date, value: point.elo }))} />
     </section>
