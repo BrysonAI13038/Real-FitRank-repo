@@ -28,9 +28,10 @@ const data = {version:3,elo:36,goals:[],workouts:[workout('one','2026-09-14T12:0
 // Screens that read the signed-in account get a fake one backed by memory.
 const { AccountContext } = load('src/cloud/accountContext.ts');
 const memory = new Map();
-const account = { user:{id:'test-user'}, storage:{getItem:key=>memory.get(key)??null,setItem:(key,value)=>memory.set(key,value),removeItem:key=>memory.delete(key)},
-  sync:{state:'idle',rejected:[]}, syncNow(){}, dataVersion:0, deviceImport:null, importDevice:async()=>0, declineImport(){} };
-const render = (component,props) => renderToStaticMarkup(React.createElement(AccountContext.Provider,{value:account},React.createElement(component,props)));
+const account = { user:{id:'test-user',email:'lifter@example.com'}, storage:{getItem:key=>memory.get(key)??null,setItem:(key,value)=>memory.set(key,value),removeItem:key=>memory.delete(key)},
+  sync:{state:'idle',rejected:[]}, syncNow:async()=>true, dataVersion:0, deviceImport:null, importDevice:async()=>0, declineImport(){}, signOut:async()=>{}, deleteAccount:async()=>{} };
+const renderAs = (value,component,props) => renderToStaticMarkup(React.createElement(AccountContext.Provider,{value},React.createElement(component,props)));
+const render = (component,props) => renderAs(account,component,props);
 test('fresh browser renders honest empty home, history and progress',()=>{
   assert.match(render(Home,{data:empty}),/Bronze/);
   assert.match(render(Home,{data:empty}),/Your first session/);
@@ -46,14 +47,37 @@ test('saved history supplies totals, session sets and comparisons',()=>{
   assert.match(render(Progress,{data}),/More weight or reps/);
   assert.match(render(Home,{data}),/36/);
 });
-test('food does not pretend to save; settings has no fake account controls',()=>{
+test('food does not pretend to save; settings has real account controls and no password UI',()=>{
   assert.match(render(Food,{}),/isn’t available yet/);
   assert.doesNotMatch(render(Food,{}),/Save food|Calories/);
   assert.match(render(Food,{}),/Coming soon/);
   assert.match(render(Home,{data}),/Log Food · Coming soon/);
   assert.doesNotMatch(render(Home,{data}),/href="#\/food"/);
-  assert.match(render(Settings,{data}),/Export workout data/);
-  assert.doesNotMatch(render(Settings,{data}),/Sign in|Password/);
+  const settings = render(Settings,{data});
+  assert.match(settings,/lifter@example\.com/);
+  assert.match(settings,/Export my data/);
+  assert.match(settings,/Sign out/);
+  assert.match(settings,/Delete my account/);
+  assert.match(settings,/Type DELETE to confirm/);
+  assert.match(settings,/<button[^>]*disabled=""[^>]*>Delete my account/);
+  assert.doesNotMatch(settings,/Password|Coming soon/);
+});
+test('settings offers "Import data from this device" only to the account that may import, and not after importing',()=>{
+  const button = /Import data from this device/;
+  const stateFor = deviceImport => renderAs({...account,deviceImport},Settings,{data});
+  assert.doesNotMatch(stateFor(null),button);
+  assert.doesNotMatch(stateFor({status:'imported',workouts:2,goals:0}),button);
+  assert.match(stateFor({status:'declined',workouts:2,goals:0}),button);
+  assert.match(stateFor({status:'offered',workouts:1,goals:0}),button);
+});
+test('settings reports sync state and workouts the server refused',()=>{
+  assert.match(renderAs({...account,sync:{state:'error',rejected:[],message:'Couldn’t sync.'}},Settings,{data}),/Couldn’t sync/);
+  assert.match(renderAs({...account,sync:{state:'synced',at:Date.now(),rejected:['x']}},Settings,{data}),/1 workout couldn’t be uploaded/);
+});
+const { exportJson } = load('src/app/exportData.ts');
+test('export is the saved data, as JSON that parses back to the same thing',()=>{
+  assert.deepEqual(JSON.parse(exportJson(data)),JSON.parse(JSON.stringify(data)));
+  assert.equal(JSON.parse(exportJson(data)).workouts.length,2);
 });
 const { hasSeenIntroduction, completeIntroduction } = load('src/app/introductionPreference.ts');
 const { default: Introduction } = load('src/app/Introduction.tsx');

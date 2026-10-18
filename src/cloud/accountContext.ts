@@ -11,12 +11,17 @@ export type Account = {
   // This account's data on this device. Pass it to the functions in src/workout.
   storage: ScopedStorage;
   sync: SyncStatus;
-  syncNow: () => void;
+  // Resolves true when the account and this device are in step, false if the sync failed.
+  syncNow: () => Promise<boolean>;
   // Bumps after a sync or import changes local data, so screens can reload.
   dataVersion: number;
   deviceImport: DeviceImportState | null;
   importDevice: () => Promise<number>;
   declineImport: () => void;
+  // Keeps this account's data on the device so signing back in resumes where it left off.
+  signOut: () => Promise<void>;
+  // Permanently deletes the account and its server data, then clears this account's data here.
+  deleteAccount: () => Promise<void>;
 };
 
 export const AccountContext = createContext<Account | null>(null);

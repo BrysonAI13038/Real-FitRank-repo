@@ -146,3 +146,14 @@
 .app-signin,.app-import { max-width:520px; }
 .app-signin>button,.app-import>button { margin-right:12px; }
 .app-signin-note { color:#a1a1aa; font-size:12px; }
+
+/* Account settings */
+.app-account { max-width:560px; }
+.app-account>h3 { margin-top:28px; }
+.app-account-actions { display:flex; flex-wrap:wrap; gap:12px; margin-top:20px; }
+.app-account-actions>.app-button { margin-top:0; }
+.app-account label { display:block; margin-top:16px; font-size:10px; letter-spacing:.1em; text-transform:uppercase; color:#96969f; }
+.app-input { display:block; width:100%; max-width:320px; margin-top:6px; padding:10px 12px; border:1px solid #3f3f46; border-radius:1px; background:#0c0c0e; color:#f4f4f5; font:inherit; font-size:16px; }
+.app-input:focus { outline:none; border-color:#f59e0b; }
+.app-danger { background:#b42318; border-color:#b42318; color:#fff; }
+.app-account+.app-account { margin-top:24px; }

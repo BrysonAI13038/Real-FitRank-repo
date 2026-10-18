@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { withSaveLock } from "../workout/storage";
 import { supabase } from "./client";
 import { createRemote } from "./remote";
-import { scopedStorage } from "./scopedStorage";
+import { clearScoped, scopedStorage } from "./scopedStorage";
 import { sync } from "./sync";
 import { deviceImportState, importDeviceData, setImportStatus } from "./deviceImport";
 import { AccountContext, type Account, type SyncStatus } from "./accountContext";
@@ -17,25 +17,35 @@ export function AccountProvider({ user, children }: { user: CloudUser; children:
   const [status, setStatus] = useState<SyncStatus>({ state: "idle", rejected: [] });
   const [dataVersion, setDataVersion] = useState(0);
   const [deviceImport, setDeviceImport] = useState(() => deviceImportState(user.id, localStorage));
-  const running = useRef(false);
+  const current = useRef<Promise<boolean> | null>(null);
   const again = useRef(false);
+  const closed = useRef(false);
 
-  const syncNow = useCallback(async () => {
-    if (running.current) { again.current = true; return; }
-    running.current = true;
-    try {
-      do {
-        again.current = false;
-        setStatus(current => ({ ...current, state: "syncing" }));
-        try {
-          const result = await sync(remote, storage);
-          setStatus({ state: "synced", at: Date.now(), rejected: result.rejected });
-          setDataVersion(version => version + 1);
-        } catch {
-          setStatus(current => ({ ...current, state: "error", message: SYNC_FAILED }));
-        }
-      } while (again.current);
-    } finally { running.current = false; }
+  // One sync at a time. A request that arrives mid-sync shares that run and asks for one more pass.
+  const syncNow = useCallback((): Promise<boolean> => {
+    if (closed.current) return Promise.resolve(false);
+    if (current.current) { again.current = true; return current.current; }
+    const run = (async () => {
+      let ok = true;
+      try {
+        do {
+          again.current = false;
+          setStatus(previous => ({ ...previous, state: "syncing" }));
+          try {
+            const result = await sync(remote, storage);
+            ok = true;
+            setStatus({ state: "synced", at: Date.now(), rejected: result.rejected });
+            setDataVersion(version => version + 1);
+          } catch {
+            ok = false;
+            setStatus(previous => ({ ...previous, state: "error", message: SYNC_FAILED }));
+          }
+        } while (again.current && !closed.current);
+      } finally { current.current = null; }
+      return ok;
+    })();
+    current.current = run;
+    return run;
   }, [remote, storage]);
 
   useEffect(() => {
@@ -58,7 +68,20 @@ export function AccountProvider({ user, children }: { user: CloudUser; children:
     setDeviceImport(deviceImportState(user.id, localStorage));
   }, [user.id]);
 
-  const value = useMemo<Account>(() => ({ user, storage, sync: status, syncNow: () => void syncNow(), dataVersion, deviceImport, importDevice, declineImport }),
-    [user, storage, status, syncNow, dataVersion, deviceImport, importDevice, declineImport]);
+  const signOut = useCallback(async () => {
+    await supabase!.auth.signOut({ scope: "local" });
+  }, []);
+  const deleteAccount = useCallback(async () => {
+    await current.current;
+    const { error } = await supabase!.rpc("delete_account");
+    if (error) throw new Error(error.message);
+    // The account is gone: stop syncing, drop its data on this device, and end the session.
+    closed.current = true;
+    clearScoped(user.id);
+    await supabase!.auth.signOut({ scope: "local" }).catch(() => undefined);
+  }, [user.id]);
+
+  const value = useMemo<Account>(() => ({ user, storage, sync: status, syncNow, dataVersion, deviceImport, importDevice, declineImport, signOut, deleteAccount }),
+    [user, storage, status, syncNow, dataVersion, deviceImport, importDevice, declineImport, signOut, deleteAccount]);
   return <AccountContext.Provider value={value}>{children}</AccountContext.Provider>;
 }

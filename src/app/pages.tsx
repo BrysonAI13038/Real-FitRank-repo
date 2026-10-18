@@ -4,6 +4,7 @@ import type { SavedData } from "../workout/storage";
 import { latestComparisons, summarize } from "./data";
 import { weekStatus } from "../workout/scoring";
 import Goals from "./Goals";
+import AccountSettings from "./AccountSettings";
 import Stats from "./Stats";
 import { exerciseName, History, PageHeading, RankCard, WorkoutList } from "./components";
 
@@ -43,7 +44,6 @@ export function Food() {
   return <><PageHeading title="Food" subtitle="Fuel for the work you do." /><section className="app-card app-empty"><p className="app-label">Coming soon</p><h2>A place for your meals.</h2><p>Food logging isn’t available yet. This space will let you record meals alongside your training.</p><p>No food scores. No judgment.</p><a href="#/home" className="app-button app-secondary">Back to Home</a></section></>;
 }
 export function Settings({ data }: { data: SavedData | null }) {
-  const [message, setMessage] = useState("");
   const [reviewingIntroduction, setReviewingIntroduction] = useState(false);
   const reviewContainer = useRef<HTMLDivElement>(null);
   const introductionButton = useRef<HTMLButtonElement>(null);
@@ -54,15 +54,6 @@ export function Settings({ data }: { data: SavedData | null }) {
       reviewContainer.current?.focus();
     } else if (hasReviewed.current) introductionButton.current?.focus();
   }, [reviewingIntroduction]);
-  function exportData() {
-    if (!data) return;
-    try {
-      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
-      const link = document.createElement("a"); link.href = url; link.download = "fitrank-workouts.json"; link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setMessage("Your data export is ready to download.");
-    } catch { setMessage("Couldn’t export your data. Please try again."); }
-  }
   if (reviewingIntroduction) return <div ref={reviewContainer} tabIndex={-1} className="app-introduction-review"><Introduction reviewing onComplete={() => setReviewingIntroduction(false)} /></div>;
-  return <><PageHeading title="Settings" subtitle="Your app. Your data." /><section className="app-card"><h2>Saved on this browser</h2><p>Workouts and ELO are stored on this device using browser storage. They stay between visits, but won’t sync to other browsers or devices.</p><p>Clearing this site’s browser data also clears your saved workouts and ELO.</p><button className="app-button app-secondary" onClick={exportData} disabled={!data}>Export workout data</button><p role="status">{message}</p></section><section className="app-card app-about"><h2>About FitRank</h2><p>Log workouts, earn ELO, and build your rank over time.</p><p>Weight is recorded in pounds. ELO never decreases.</p><button ref={introductionButton} type="button" className="app-button app-secondary" onClick={() => setReviewingIntroduction(true)}>View FitRank Introduction</button></section></>;
+  return <><PageHeading title="Settings" subtitle="Your app. Your data." /><AccountSettings data={data} /><section className="app-card app-about"><h2>About FitRank</h2><p>Log workouts, earn ELO, and build your rank over time.</p><p>Weight is recorded in pounds. ELO never decreases.</p><button ref={introductionButton} type="button" className="app-button app-secondary" onClick={() => setReviewingIntroduction(true)}>View FitRank Introduction</button></section></>;
 }
