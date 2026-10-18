@@ -1,7 +1,11 @@
 {
-  "description": "Track workouts by logging exercises, weight, and reps to compare progress, earn ranks, and motivate continuous fitness improvement.",
+  "title": "FitRank",
+  "description": "FitRank is a free workout tracker. Log exercises, weight and reps, earn ELO and climb ranks from Bronze to Elite.",
   "robots": {
-    "index": false
+    "index": true
+  },
+  "openGraph": {
+    "image": "https://fitrank-workout.netlify.app/og-image.jpg"
   },
   "accessibility": {
     "addBypassLinks": false,

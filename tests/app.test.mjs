@@ -254,3 +254,14 @@ test('the old black-and-orange palette is gone from the app',()=>{
   const files = ['src/app/app.css','src/instrument-atmosphere.css','src/workout/WorkoutInput.tsx','src/workout/WorkoutReward.tsx','src/workout/ExercisePicker.tsx','index.html','public/manifest.webmanifest'];
   for (const file of files) assert.doesNotMatch(fs.readFileSync(file,'utf8'),/#f59e0b|#0c0c0e|#161618|245,158,11/i,file);
 });
+
+test('site config: indexable, branded title and description, and an absolute preview image that exists',()=>{
+  const site = JSON.parse(fs.readFileSync('.figma/make/site.json','utf8'));
+  assert.notEqual(site.robots?.index,false);
+  assert.equal(site.title,'FitRank');
+  assert.match(site.description,/workout tracker/i);
+  assert.doesNotMatch(JSON.stringify(site),/figma make/i);
+  assert.match(site.openGraph.image,/^https:\/\/[^/]+\/og-image\.jpg$/);
+  const image = fs.statSync('public/og-image.jpg');
+  assert.ok(image.size > 10_000 && image.size < 300_000,'preview image should be a small, real JPEG');
+});
